@@ -15,6 +15,9 @@ Page({
     gridSize: 20, // 网格大小 20x20
     cellSize: 30, // 每格像素大小
 
+    // 图层相关
+    currentLayer: 'base', // 当前图层: base, furniture, overlay
+
     // 工具相关
     currentTool: 'wall', // 当前选中工具
     toolNames: {
@@ -22,6 +25,10 @@ Page({
       room: '房间',
       door: '门',
       window: '窗户',
+      fan: '风扇',
+      chair: '椅子',
+      table: '桌子',
+      bed: '床',
       select: '选择'
     },
 
@@ -32,6 +39,12 @@ Page({
         rooms: [],
         doors: [],
         windows: []
+      },
+      furniture_layer: {
+        fans: [],
+        chairs: [],
+        tables: [],
+        beds: []
       }
     },
 
@@ -132,7 +145,7 @@ Page({
   render() {
     if (!this.data.ctx) return
 
-    const { ctx, gridSize, cellSize, showGrid, designData, selectedElement } = this.data
+    const { ctx, gridSize, cellSize, showGrid, designData, selectedElement, currentLayer } = this.data
     const canvasSize = gridSize * cellSize
 
     // 清空画布
@@ -168,6 +181,33 @@ Page({
     baseLayer.windows.forEach((window, index) => {
       const isSelected = selectedElement && selectedElement.type === 'window' && this.data.selectedElementIndex === index
       drawingUtils.drawWindow(ctx, window, cellSize, '#64b5f6', isSelected)
+    })
+
+    // 绘制家具层元素
+    const furnitureLayer = designData.furniture_layer
+
+    // 绘制风扇
+    furnitureLayer.fans.forEach((fan, index) => {
+      const isSelected = selectedElement && selectedElement.type === 'fan' && this.data.selectedElementIndex === index
+      drawingUtils.drawFan(ctx, fan, cellSize, isSelected)
+    })
+
+    // 绘制椅子
+    furnitureLayer.chairs.forEach((chair, index) => {
+      const isSelected = selectedElement && selectedElement.type === 'chair' && this.data.selectedElementIndex === index
+      drawingUtils.drawChair(ctx, chair, cellSize, isSelected)
+    })
+
+    // 绘制桌子
+    furnitureLayer.tables.forEach((table, index) => {
+      const isSelected = selectedElement && selectedElement.type === 'table' && this.data.selectedElementIndex === index
+      drawingUtils.drawTable(ctx, table, cellSize, isSelected)
+    })
+
+    // 绘制床
+    furnitureLayer.beds.forEach((bed, index) => {
+      const isSelected = selectedElement && selectedElement.type === 'bed' && this.data.selectedElementIndex === index
+      drawingUtils.drawBed(ctx, bed, cellSize, isSelected)
     })
   },
 
@@ -235,13 +275,21 @@ Page({
     // 根据当前工具处理
     if (this.data.currentTool === 'select') {
       this.handleSelect(gridCoord)
-    } else if (['wall', 'room'].includes(this.data.currentTool)) {
-      this.setData({
-        drawing: true,
-        startPoint: gridCoord
-      })
-    } else if (['door', 'window'].includes(this.data.currentTool)) {
-      this.placeDoorOrWindow(gridCoord)
+    } else if (this.data.currentLayer === 'base') {
+      // 基础层工具
+      if (['wall', 'room'].includes(this.data.currentTool)) {
+        this.setData({
+          drawing: true,
+          startPoint: gridCoord
+        })
+      } else if (['door', 'window'].includes(this.data.currentTool)) {
+        this.placeDoorOrWindow(gridCoord)
+      }
+    } else if (this.data.currentLayer === 'furniture') {
+      // 家具层工具
+      if (['fan', 'chair', 'table', 'bed'].includes(this.data.currentTool)) {
+        this.placeFurniture(gridCoord)
+      }
     }
   },
 
@@ -537,74 +585,236 @@ Page({
   },
 
   /**
+   * 放置家具
+   */
+  placeFurniture(gridCoord) {
+    const { currentTool, designData } = this.data
+    const furnitureLayer = designData.furniture_layer
+
+    if (currentTool === 'fan') {
+      // 风扇需要检测挂墙
+      const wallInfo = this.detectAdjacentWall(gridCoord)
+      const furniture = {
+        x: gridCoord.x,
+        y: gridCoord.y,
+        direction: wallInfo.direction,
+        wallAttached: wallInfo.attached
+      }
+      furnitureLayer.fans.push(furniture)
+    } else if (currentTool === 'chair') {
+      // 椅子默认朝上
+      const furniture = {
+        x: gridCoord.x,
+        y: gridCoord.y,
+        direction: 'up'
+      }
+      furnitureLayer.chairs.push(furniture)
+    } else if (currentTool === 'table') {
+      // 桌子 2x1
+      const furniture = {
+        x: gridCoord.x,
+        y: gridCoord.y,
+        direction: 'up',
+        width: 2,
+        height: 1
+      }
+      furnitureLayer.tables.push(furniture)
+    } else if (currentTool === 'bed') {
+      // 床 2x3
+      const furniture = {
+        x: gridCoord.x,
+        y: gridCoord.y,
+        direction: 'right',
+        width: 2,
+        height: 3
+      }
+      furnitureLayer.beds.push(furniture)
+    }
+
+    this.setData({ designData })
+    this.render()
+
+    // 保存到本地缓存
+    this.saveToLocalCache()
+  },
+
+  /**
+   * 检测相邻墙壁(用于风扇挂墙)
+   */
+  detectAdjacentWall(gridCoord) {
+    const { designData } = this.data
+    const walls = designData.base_layer.walls
+
+    // 检查四个方向是否有墙壁
+    const directions = [
+      { dir: 'up', dx: 0, dy: -1 },
+      { dir: 'down', dx: 0, dy: 1 },
+      { dir: 'left', dx: -1, dy: 0 },
+      { dir: 'right', dx: 1, dy: 0 }
+    ]
+
+    for (const { dir, dx, dy } of directions) {
+      const checkX = gridCoord.x + dx
+      const checkY = gridCoord.y + dy
+
+      // 检查该位置是否有墙壁
+      for (const wall of walls) {
+        if (this.isPointOnWall({ x: checkX, y: checkY }, wall)) {
+          return { attached: true, direction: dir }
+        }
+      }
+    }
+
+    // 没有相邻墙壁，默认朝下
+    return { attached: false, direction: 'down' }
+  },
+
+  /**
+   * 判断点是否在墙壁上
+   */
+  isPointOnWall(point, wall) {
+    const minX = Math.min(wall.startX, wall.endX)
+    const maxX = Math.max(wall.startX, wall.endX)
+    const minY = Math.min(wall.startY, wall.endY)
+    const maxY = Math.max(wall.startY, wall.endY)
+
+    return point.x >= minX && point.x <= maxX && point.y >= minY && point.y <= maxY
+  },
+
+  /**
    * 选择元素
    */
   handleSelect(gridCoord) {
-    const { designData, cellSize } = this.data
-    const baseLayer = designData.base_layer
+    const { designData, cellSize, currentLayer } = this.data
 
     let found = false
 
-    // 检查门(优先级最高)
-    for (let i = baseLayer.doors.length - 1; i >= 0; i--) {
-      const door = baseLayer.doors[i]
-      if (door.x === gridCoord.x && door.y === gridCoord.y) {
-        this.setData({
-          selectedElement: door,
-          selectedElementIndex: i
-        })
-        found = true
-        break
-      }
-    }
+    if (currentLayer === 'furniture') {
+      // 家具层选择
+      const furnitureLayer = designData.furniture_layer
 
-    // 检查窗户
-    if (!found) {
-      for (let i = baseLayer.windows.length - 1; i >= 0; i--) {
-        const window = baseLayer.windows[i]
-        if (window.x === gridCoord.x && window.y === gridCoord.y) {
+      // 检查风扇
+      for (let i = furnitureLayer.fans.length - 1; i >= 0; i--) {
+        const fan = furnitureLayer.fans[i]
+        if (fan.x === gridCoord.x && fan.y === gridCoord.y) {
           this.setData({
-            selectedElement: window,
+            selectedElement: { ...fan, type: 'fan' },
             selectedElementIndex: i
           })
           found = true
           break
         }
       }
-    }
 
-    // 检查墙壁
-    if (!found) {
-      for (let i = baseLayer.walls.length - 1; i >= 0; i--) {
-        const wall = baseLayer.walls[i]
-        // 简单的点击检测(点在墙壁线段附近)
-        if (this.isPointNearWall(gridCoord, wall)) {
+      // 检查椅子
+      if (!found) {
+        for (let i = furnitureLayer.chairs.length - 1; i >= 0; i--) {
+          const chair = furnitureLayer.chairs[i]
+          if (chair.x === gridCoord.x && chair.y === gridCoord.y) {
+            this.setData({
+              selectedElement: { ...chair, type: 'chair' },
+              selectedElementIndex: i
+            })
+            found = true
+            break
+          }
+        }
+      }
+
+      // 检查桌子
+      if (!found) {
+        for (let i = furnitureLayer.tables.length - 1; i >= 0; i--) {
+          const table = furnitureLayer.tables[i]
+          if (this.isPointInFurniture(gridCoord, table)) {
+            this.setData({
+              selectedElement: { ...table, type: 'table' },
+              selectedElementIndex: i
+            })
+            found = true
+            break
+          }
+        }
+      }
+
+      // 检查床
+      if (!found) {
+        for (let i = furnitureLayer.beds.length - 1; i >= 0; i--) {
+          const bed = furnitureLayer.beds[i]
+          if (this.isPointInFurniture(gridCoord, bed)) {
+            this.setData({
+              selectedElement: { ...bed, type: 'bed' },
+              selectedElementIndex: i
+            })
+            found = true
+            break
+          }
+        }
+      }
+    } else {
+      // 基础层选择
+      const baseLayer = designData.base_layer
+
+      // 检查门(优先级最高)
+      for (let i = baseLayer.doors.length - 1; i >= 0; i--) {
+        const door = baseLayer.doors[i]
+        if (door.x === gridCoord.x && door.y === gridCoord.y) {
           this.setData({
-            selectedElement: wall,
+            selectedElement: door,
             selectedElementIndex: i
           })
           found = true
           break
         }
       }
-    }
 
-    // 检查房间
-    if (!found) {
-      for (let i = baseLayer.rooms.length - 1; i >= 0; i--) {
-        const room = baseLayer.rooms[i]
-        if (
-          gridCoord.x >= room.x &&
-          gridCoord.x < room.x + room.width &&
-          gridCoord.y >= room.y &&
-          gridCoord.y < room.y + room.height
-        ) {
-          this.setData({
-            selectedElement: room,
-            selectedElementIndex: i
-          })
-          found = true
-          break
+      // 检查窗户
+      if (!found) {
+        for (let i = baseLayer.windows.length - 1; i >= 0; i--) {
+          const window = baseLayer.windows[i]
+          if (window.x === gridCoord.x && window.y === gridCoord.y) {
+            this.setData({
+              selectedElement: window,
+              selectedElementIndex: i
+            })
+            found = true
+            break
+          }
+        }
+      }
+
+      // 检查墙壁
+      if (!found) {
+        for (let i = baseLayer.walls.length - 1; i >= 0; i--) {
+          const wall = baseLayer.walls[i]
+          // 简单的点击检测(点在墙壁线段附近)
+          if (this.isPointNearWall(gridCoord, wall)) {
+            this.setData({
+              selectedElement: wall,
+              selectedElementIndex: i
+            })
+            found = true
+            break
+          }
+        }
+      }
+
+      // 检查房间
+      if (!found) {
+        for (let i = baseLayer.rooms.length - 1; i >= 0; i--) {
+          const room = baseLayer.rooms[i]
+          if (
+            gridCoord.x >= room.x &&
+            gridCoord.x < room.x + room.width &&
+            gridCoord.y >= room.y &&
+            gridCoord.y < room.y + room.height
+          ) {
+            this.setData({
+              selectedElement: room,
+              selectedElementIndex: i
+            })
+            found = true
+            break
+          }
         }
       }
     }
@@ -617,6 +827,20 @@ Page({
     }
 
     this.render()
+  },
+
+  /**
+   * 判断点是否在家具范围内
+   */
+  isPointInFurniture(point, furniture) {
+    const width = furniture.width || 1
+    const height = furniture.height || 1
+    return (
+      point.x >= furniture.x &&
+      point.x < furniture.x + width &&
+      point.y >= furniture.y &&
+      point.y < furniture.y + height
+    )
   },
 
   /**
@@ -643,10 +867,35 @@ Page({
   },
 
   /**
+   * 切换图层
+   */
+  onSwitchLayer(e) {
+    const layer = e.currentTarget.dataset.layer
+    const currentTool = this.data.currentTool
+
+    // 切换图层时重置工具
+    let newTool = 'select'
+    if (layer === 'base') {
+      newTool = 'wall'
+    } else if (layer === 'furniture') {
+      newTool = 'fan'
+    }
+
+    this.setData({
+      currentLayer: layer,
+      currentTool: newTool,
+      selectedElement: null,
+      selectedElementIndex: -1
+    })
+
+    this.render()
+  },
+
+  /**
    * 删除选中元素
    */
   onDelete() {
-    const { selectedElement, selectedElementIndex, designData } = this.data
+    const { selectedElement, selectedElementIndex, designData, currentLayer } = this.data
 
     if (!selectedElement || selectedElementIndex < 0) {
       wx.showToast({
@@ -657,16 +906,31 @@ Page({
     }
 
     const type = selectedElement.type
-    const baseLayer = designData.base_layer
 
-    if (type === 'wall') {
-      baseLayer.walls.splice(selectedElementIndex, 1)
-    } else if (type === 'room') {
-      baseLayer.rooms.splice(selectedElementIndex, 1)
-    } else if (type === 'door') {
-      baseLayer.doors.splice(selectedElementIndex, 1)
-    } else if (type === 'window') {
-      baseLayer.windows.splice(selectedElementIndex, 1)
+    if (currentLayer === 'furniture') {
+      // 删除家具层元素
+      const furnitureLayer = designData.furniture_layer
+      if (type === 'fan') {
+        furnitureLayer.fans.splice(selectedElementIndex, 1)
+      } else if (type === 'chair') {
+        furnitureLayer.chairs.splice(selectedElementIndex, 1)
+      } else if (type === 'table') {
+        furnitureLayer.tables.splice(selectedElementIndex, 1)
+      } else if (type === 'bed') {
+        furnitureLayer.beds.splice(selectedElementIndex, 1)
+      }
+    } else {
+      // 删除基础层元素
+      const baseLayer = designData.base_layer
+      if (type === 'wall') {
+        baseLayer.walls.splice(selectedElementIndex, 1)
+      } else if (type === 'room') {
+        baseLayer.rooms.splice(selectedElementIndex, 1)
+      } else if (type === 'door') {
+        baseLayer.doors.splice(selectedElementIndex, 1)
+      } else if (type === 'window') {
+        baseLayer.windows.splice(selectedElementIndex, 1)
+      }
     }
 
     this.setData({
@@ -687,6 +951,54 @@ Page({
   },
 
   /**
+   * 旋转家具朝向
+   */
+  onRotate() {
+    const { selectedElement, selectedElementIndex, designData, currentLayer } = this.data
+
+    if (currentLayer !== 'furniture' || !selectedElement || selectedElementIndex < 0) {
+      wx.showToast({
+        title: '请先选择家具',
+        icon: 'none'
+      })
+      return
+    }
+
+    const type = selectedElement.type
+    const furnitureLayer = designData.furniture_layer
+
+    // 定义旋转顺序
+    const rotationOrder = ['up', 'right', 'down', 'left']
+    const currentDirection = selectedElement.direction
+    const currentIndex = rotationOrder.indexOf(currentDirection)
+    const nextDirection = rotationOrder[(currentIndex + 1) % 4]
+
+    // 更新对应家具的朝向
+    if (type === 'fan') {
+      furnitureLayer.fans[selectedElementIndex].direction = nextDirection
+    } else if (type === 'chair') {
+      furnitureLayer.chairs[selectedElementIndex].direction = nextDirection
+    } else if (type === 'table') {
+      furnitureLayer.tables[selectedElementIndex].direction = nextDirection
+    } else if (type === 'bed') {
+      furnitureLayer.beds[selectedElementIndex].direction = nextDirection
+    }
+
+    // 更新选中元素的朝向
+    selectedElement.direction = nextDirection
+
+    this.setData({
+      designData,
+      selectedElement
+    })
+
+    this.render()
+
+    // 保存到本地缓存
+    this.saveToLocalCache()
+  },
+
+  /**
    * 切换网格显示
    */
   onToggleGrid() {
@@ -703,6 +1015,7 @@ Page({
     try {
       const cacheData = {
         baseLayer: this.data.designData.base_layer,
+        furnitureLayer: this.data.designData.furniture_layer,
         gridSize: this.data.gridSize,
         cellSize: this.data.cellSize
       }
@@ -727,9 +1040,17 @@ Page({
           windows: []
         }
 
+        const furnitureLayer = design.furnitureLayer || design.furniture_layer || {
+          fans: [],
+          chairs: [],
+          tables: [],
+          beds: []
+        }
+
         this.setData({
           designData: {
-            base_layer: baseLayer
+            base_layer: baseLayer,
+            furniture_layer: furnitureLayer
           },
           gridSize: design.gridSize || design.grid_size || 20,
           cellSize: design.cellSize || design.cell_size || design.grid_cell_size || 30
@@ -752,7 +1073,7 @@ Page({
       name: `设计_${new Date().toLocaleString('zh-CN')}`,
       fileName: `design_${Date.now()}.json`,
       baseLayer: this.data.designData.base_layer,
-      furnitureLayer: { fans: [], chairs: [], tables: [], beds: [] }, // 暂时为空
+      furnitureLayer: this.data.designData.furniture_layer,
       gridSize: this.data.gridSize,
       cellSize: this.data.cellSize
     }
@@ -868,10 +1189,18 @@ Page({
             windows: []
           }
 
+          const furnitureLayer = design.furnitureLayer || design.furniture_layer || {
+            fans: [],
+            chairs: [],
+            tables: [],
+            beds: []
+          }
+
           // 更新设计数据
           this.setData({
             designData: {
-              base_layer: baseLayer
+              base_layer: baseLayer,
+              furniture_layer: furnitureLayer
             },
             gridSize: design.gridSize || design.grid_size || 20,
             cellSize: design.cellSize || design.cell_size || design.grid_cell_size || 30,

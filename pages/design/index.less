@@ -66,6 +66,37 @@
   font-weight: 600;
 }
 
+/* 图层切换 */
+.layer-switch {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  padding: 10rpx;
+}
+
+.layer-item {
+  padding: 16rpx 20rpx;
+  text-align: center;
+  background-color: #f5f5f5;
+  border-radius: 8rpx;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.layer-item.active {
+  background-color: #2196f3;
+}
+
+.layer-name {
+  font-size: 24rpx;
+  color: #333;
+}
+
+.layer-item.active .layer-name {
+  color: white;
+  font-weight: 600;
+}
+
 .tool-item {
   display: flex;
   flex-direction: column;

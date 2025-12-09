@@ -15,8 +15,36 @@
   <view class="main-content">
     <!-- 左侧工具栏 -->
     <view class="toolbar">
+      <!-- 图层切换 -->
       <view class="tool-section">
-        <text class="section-title">基础层</text>
+        <text class="section-title">图层</text>
+        <view class="layer-switch">
+          <view
+            class="layer-item {{currentLayer === 'base' ? 'active' : ''}}"
+            data-layer="base"
+            bind:tap="onSwitchLayer"
+          >
+            <text class="layer-name">基础</text>
+          </view>
+          <view
+            class="layer-item {{currentLayer === 'furniture' ? 'active' : ''}}"
+            data-layer="furniture"
+            bind:tap="onSwitchLayer"
+          >
+            <text class="layer-name">家具</text>
+          </view>
+          <view
+            class="layer-item {{currentLayer === 'overlay' ? 'active' : ''}}"
+            data-layer="overlay"
+            bind:tap="onSwitchLayer"
+          >
+            <text class="layer-name">叠加</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="tool-section" wx:if="{{currentLayer === 'base'}}">
+        <text class="section-title">基础工具</text>
         <view
           class="tool-item {{currentTool === 'wall' ? 'active' : ''}}"
           data-tool="wall"
@@ -51,6 +79,43 @@
         </view>
       </view>
 
+      <!-- 家具层工具 -->
+      <view class="tool-section" wx:if="{{currentLayer === 'furniture'}}">
+        <text class="section-title">家具</text>
+        <view
+          class="tool-item {{currentTool === 'fan' ? 'active' : ''}}"
+          data-tool="fan"
+          bind:tap="onSelectTool"
+        >
+          <text class="tool-icon">🌀</text>
+          <text class="tool-name">风扇</text>
+        </view>
+        <view
+          class="tool-item {{currentTool === 'chair' ? 'active' : ''}}"
+          data-tool="chair"
+          bind:tap="onSelectTool"
+        >
+          <text class="tool-icon">🪑</text>
+          <text class="tool-name">椅子</text>
+        </view>
+        <view
+          class="tool-item {{currentTool === 'table' ? 'active' : ''}}"
+          data-tool="table"
+          bind:tap="onSelectTool"
+        >
+          <text class="tool-icon">🪑</text>
+          <text class="tool-name">桌子</text>
+        </view>
+        <view
+          class="tool-item {{currentTool === 'bed' ? 'active' : ''}}"
+          data-tool="bed"
+          bind:tap="onSelectTool"
+        >
+          <text class="tool-icon">🛏️</text>
+          <text class="tool-name">床</text>
+        </view>
+      </view>
+
       <view class="tool-section">
         <text class="section-title">操作</text>
         <view
@@ -67,6 +132,14 @@
         >
           <text class="tool-icon">🗑️</text>
           <text class="tool-name">删除</text>
+        </view>
+        <view
+          class="tool-item"
+          wx:if="{{currentLayer === 'furniture' && selectedElement}}"
+          bind:tap="onRotate"
+        >
+          <text class="tool-icon">🔄</text>
+          <text class="tool-name">旋转</text>
         </view>
         <view
           class="tool-item"
