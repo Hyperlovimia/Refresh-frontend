@@ -1,0 +1,133 @@
+<!-- 房间设计页面 -->
+<view class="design-page">
+  <!-- 顶部操作栏 -->
+  <view class="top-bar">
+    <view class="top-bar-left">
+      <text class="page-title">房间设计</text>
+    </view>
+    <view class="top-bar-right">
+      <t-button size="small" theme="primary" bind:tap="onSave" class="btn-action">保存</t-button>
+      <t-button size="small" theme="default" bind:tap="onLoadDesign" class="btn-action">加载</t-button>
+    </view>
+  </view>
+
+  <!-- 主内容区 -->
+  <view class="main-content">
+    <!-- 左侧工具栏 -->
+    <view class="toolbar">
+      <view class="tool-section">
+        <text class="section-title">基础层</text>
+        <view
+          class="tool-item {{currentTool === 'wall' ? 'active' : ''}}"
+          data-tool="wall"
+          bind:tap="onSelectTool"
+        >
+          <text class="tool-icon">🧱</text>
+          <text class="tool-name">墙壁</text>
+        </view>
+        <view
+          class="tool-item {{currentTool === 'room' ? 'active' : ''}}"
+          data-tool="room"
+          bind:tap="onSelectTool"
+        >
+          <text class="tool-icon">⬜</text>
+          <text class="tool-name">房间</text>
+        </view>
+        <view
+          class="tool-item {{currentTool === 'door' ? 'active' : ''}}"
+          data-tool="door"
+          bind:tap="onSelectTool"
+        >
+          <text class="tool-icon">🚪</text>
+          <text class="tool-name">门</text>
+        </view>
+        <view
+          class="tool-item {{currentTool === 'window' ? 'active' : ''}}"
+          data-tool="window"
+          bind:tap="onSelectTool"
+        >
+          <text class="tool-icon">🪟</text>
+          <text class="tool-name">窗户</text>
+        </view>
+      </view>
+
+      <view class="tool-section">
+        <text class="section-title">操作</text>
+        <view
+          class="tool-item {{currentTool === 'select' ? 'active' : ''}}"
+          data-tool="select"
+          bind:tap="onSelectTool"
+        >
+          <text class="tool-icon">👆</text>
+          <text class="tool-name">选择</text>
+        </view>
+        <view
+          class="tool-item"
+          bind:tap="onDelete"
+        >
+          <text class="tool-icon">🗑️</text>
+          <text class="tool-name">删除</text>
+        </view>
+        <view
+          class="tool-item"
+          bind:tap="onToggleGrid"
+        >
+          <text class="tool-icon">{{showGrid ? '☑️' : '⬜'}}</text>
+          <text class="tool-name">网格</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 右侧画布区域 -->
+    <view class="canvas-container">
+      <canvas
+        type="2d"
+        id="designCanvas"
+        class="design-canvas"
+        bindtouchstart="onTouchStart"
+        bindtouchmove="onTouchMove"
+        bindtouchend="onTouchEnd"
+      ></canvas>
+
+      <!-- 坐标显示 -->
+      <view class="coord-display" wx:if="{{currentCoord}}">
+        坐标: ({{currentCoord.x}}, {{currentCoord.y}})
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部状态栏 -->
+  <view class="status-bar">
+    <text>当前工具: {{toolNames[currentTool]}}</text>
+    <text wx:if="{{selectedElement}}">选中: {{selectedElement.type}}</text>
+  </view>
+
+  <!-- 加载设计文件对话框 -->
+  <t-dialog
+    visible="{{showLoadDialog}}"
+    title="选择设计文件"
+    confirm-btn="加载"
+    cancel-btn="取消"
+    bind:confirm="onConfirmLoad"
+    bind:cancel="onCancelLoad"
+  >
+    <view class="file-list">
+      <view
+        class="file-item {{selectedFile === item.name ? 'selected' : ''}}"
+        wx:for="{{fileList}}"
+        wx:key="name"
+        data-filename="{{item.name}}"
+        bind:tap="onSelectFile"
+      >
+        <text class="file-name">{{item.name}}</text>
+        <text class="file-time">{{item.modified}}</text>
+      </view>
+      <view class="file-item empty" wx:if="{{fileList.length === 0}}">
+        <text>暂无保存的设计文件</text>
+      </view>
+    </view>
+  </t-dialog>
+
+  <!-- Toast提示 -->
+  <t-toast id="t-toast" />
+</view>

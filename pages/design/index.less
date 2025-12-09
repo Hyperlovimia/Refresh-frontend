@@ -1,0 +1,171 @@
+/* 房间设计页面样式 */
+.design-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: #f5f7fa;
+}
+
+/* 顶部操作栏 */
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx 30rpx;
+  background-color: #2c3e50;
+  color: white;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
+}
+
+.top-bar-left {
+  display: flex;
+  align-items: center;
+}
+
+.page-title {
+  font-size: 36rpx;
+  font-weight: 600;
+}
+
+.top-bar-right {
+  display: flex;
+  gap: 20rpx;
+}
+
+.btn-action {
+  margin-left: 20rpx;
+}
+
+/* 主内容区 */
+.main-content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* 左侧工具栏 */
+.toolbar {
+  width: 180rpx;
+  background-color: white;
+  border-right: 2rpx solid #e5e5e5;
+  display: flex;
+  flex-direction: column;
+  padding: 20rpx 0;
+  overflow-y: auto;
+}
+
+.tool-section {
+  margin-bottom: 40rpx;
+}
+
+.section-title {
+  display: block;
+  padding: 10rpx 20rpx;
+  font-size: 24rpx;
+  color: #999;
+  font-weight: 600;
+}
+
+.tool-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20rpx 10rpx;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.tool-item:active {
+  background-color: #f0f0f0;
+}
+
+.tool-item.active {
+  background-color: #e3f2fd;
+  border-left: 6rpx solid #2196f3;
+}
+
+.tool-icon {
+  font-size: 48rpx;
+  margin-bottom: 8rpx;
+}
+
+.tool-name {
+  font-size: 24rpx;
+  color: #333;
+}
+
+/* 画布容器 */
+.canvas-container {
+  flex: 1;
+  position: relative;
+  background-color: #fafafa;
+  overflow: hidden;
+}
+
+.design-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+/* 坐标显示 */
+.coord-display {
+  position: absolute;
+  top: 20rpx;
+  right: 20rpx;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 10rpx 20rpx;
+  border-radius: 8rpx;
+  font-size: 24rpx;
+}
+
+/* 底部状态栏 */
+.status-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx 30rpx;
+  background-color: white;
+  border-top: 2rpx solid #e5e5e5;
+  font-size: 26rpx;
+  color: #666;
+}
+
+/* 文件列表对话框 */
+.file-list {
+  max-height: 600rpx;
+  overflow-y: auto;
+}
+
+.file-item {
+  display: flex;
+  flex-direction: column;
+  padding: 30rpx;
+  border-bottom: 2rpx solid #f0f0f0;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.file-item:active {
+  background-color: #f5f5f5;
+}
+
+.file-item.selected {
+  background-color: #e3f2fd;
+}
+
+.file-item.empty {
+  text-align: center;
+  color: #999;
+}
+
+.file-name {
+  font-size: 28rpx;
+  color: #333;
+  margin-bottom: 10rpx;
+}
+
+.file-time {
+  font-size: 24rpx;
+  color: #999;
+}
