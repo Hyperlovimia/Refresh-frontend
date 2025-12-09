@@ -139,7 +139,7 @@ function clearCanvas(ctx, width, height) {
 /**
  * 绘制风扇
  * @param {CanvasRenderingContext2D} ctx - Canvas 上下文
- * @param {Object} fan - 风扇数据 {x, y, direction, wallAttached}
+ * @param {Object} fan - 风扇数据 {x, y, direction, wallAttached, wallSide}
  * @param {number} cellSize - 单元格大小
  * @param {boolean} isSelected - 是否选中
  */
@@ -160,7 +160,7 @@ function drawFan(ctx, fan, cellSize, isSelected = false) {
   ctx.fill()
   ctx.stroke()
 
-  // 绘制朝向箭头
+  // 绘制朝向箭头（风扇吹风方向）
   ctx.strokeStyle = '#fff'
   ctx.lineWidth = 2
   ctx.lineCap = 'round'
@@ -186,8 +186,8 @@ function drawFan(ctx, fan, cellSize, isSelected = false) {
 
   ctx.restore()
 
-  // 如果挂墙,绘制墙壁连接线
-  if (fan.wallAttached) {
+  // 如果挂墙，绘制墙壁连接线（使用 wallSide 而不是 direction）
+  if (fan.wallAttached && fan.wallSide) {
     ctx.save()
     ctx.strokeStyle = '#757575'
     ctx.lineWidth = 1
@@ -196,10 +196,11 @@ function drawFan(ctx, fan, cellSize, isSelected = false) {
     let wallX = centerX
     let wallY = centerY
 
-    if (fan.direction === 'up') wallY = pos.y
-    else if (fan.direction === 'down') wallY = pos.y + cellSize
-    else if (fan.direction === 'left') wallX = pos.x
-    else if (fan.direction === 'right') wallX = pos.x + cellSize
+    // wallSide 表示墙在哪一侧
+    if (fan.wallSide === 'up') wallY = pos.y
+    else if (fan.wallSide === 'down') wallY = pos.y + cellSize
+    else if (fan.wallSide === 'left') wallX = pos.x
+    else if (fan.wallSide === 'right') wallX = pos.x + cellSize
 
     ctx.beginPath()
     ctx.moveTo(centerX, centerY)
@@ -295,11 +296,29 @@ function drawBed(ctx, bed, cellSize, isSelected = false) {
   ctx.fillRect(pos.x + cellSize * 0.05, pos.y + cellSize * 0.05, width - cellSize * 0.1, height - cellSize * 0.1)
   ctx.strokeRect(pos.x + cellSize * 0.05, pos.y + cellSize * 0.05, width - cellSize * 0.1, height - cellSize * 0.1)
 
-  // 绘制枕头区域
-  const pillowHeight = Math.min(height * 0.25, cellSize * 0.8)
+  // 绘制枕头区域，根据朝向决定枕头位置
   ctx.fillStyle = isSelected ? '#f48fb1' : '#ce93d8'
-  ctx.fillRect(pos.x + cellSize * 0.1, pos.y + cellSize * 0.1, width - cellSize * 0.2, pillowHeight)
-  ctx.strokeRect(pos.x + cellSize * 0.1, pos.y + cellSize * 0.1, width - cellSize * 0.2, pillowHeight)
+
+  const pillowThickness = cellSize * 0.8
+  const margin = cellSize * 0.1
+
+  if (bed.direction === 'up') {
+    // 枕头在顶部
+    ctx.fillRect(pos.x + margin, pos.y + margin, width - cellSize * 0.2, pillowThickness)
+    ctx.strokeRect(pos.x + margin, pos.y + margin, width - cellSize * 0.2, pillowThickness)
+  } else if (bed.direction === 'down') {
+    // 枕头在底部
+    ctx.fillRect(pos.x + margin, pos.y + height - margin - pillowThickness, width - cellSize * 0.2, pillowThickness)
+    ctx.strokeRect(pos.x + margin, pos.y + height - margin - pillowThickness, width - cellSize * 0.2, pillowThickness)
+  } else if (bed.direction === 'left') {
+    // 枕头在左侧
+    ctx.fillRect(pos.x + margin, pos.y + margin, pillowThickness, height - cellSize * 0.2)
+    ctx.strokeRect(pos.x + margin, pos.y + margin, pillowThickness, height - cellSize * 0.2)
+  } else if (bed.direction === 'right') {
+    // 枕头在右侧
+    ctx.fillRect(pos.x + width - margin - pillowThickness, pos.y + margin, pillowThickness, height - cellSize * 0.2)
+    ctx.strokeRect(pos.x + width - margin - pillowThickness, pos.y + margin, pillowThickness, height - cellSize * 0.2)
+  }
 }
 
 module.exports = {

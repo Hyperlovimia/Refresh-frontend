@@ -156,7 +156,7 @@ Page({
       gridUtils.drawGrid(ctx, gridSize, cellSize)
     }
 
-    // 绘制基础层元素
+    // 绘制基础层元素（始终显示）
     const baseLayer = designData.base_layer
 
     // 绘制房间(最底层)
@@ -183,32 +183,36 @@ Page({
       drawingUtils.drawWindow(ctx, window, cellSize, '#64b5f6', isSelected)
     })
 
-    // 绘制家具层元素
-    const furnitureLayer = designData.furniture_layer
+    // 绘制家具层元素（仅在家具层和叠加层显示）
+    if (currentLayer === 'furniture' || currentLayer === 'overlay') {
+      const furnitureLayer = designData.furniture_layer
 
-    // 绘制风扇
-    furnitureLayer.fans.forEach((fan, index) => {
-      const isSelected = selectedElement && selectedElement.type === 'fan' && this.data.selectedElementIndex === index
-      drawingUtils.drawFan(ctx, fan, cellSize, isSelected)
-    })
+      // 绘制风扇
+      furnitureLayer.fans.forEach((fan, index) => {
+        const isSelected = selectedElement && selectedElement.type === 'fan' && this.data.selectedElementIndex === index
+        drawingUtils.drawFan(ctx, fan, cellSize, isSelected)
+      })
 
-    // 绘制椅子
-    furnitureLayer.chairs.forEach((chair, index) => {
-      const isSelected = selectedElement && selectedElement.type === 'chair' && this.data.selectedElementIndex === index
-      drawingUtils.drawChair(ctx, chair, cellSize, isSelected)
-    })
+      // 绘制椅子
+      furnitureLayer.chairs.forEach((chair, index) => {
+        const isSelected = selectedElement && selectedElement.type === 'chair' && this.data.selectedElementIndex === index
+        drawingUtils.drawChair(ctx, chair, cellSize, isSelected)
+      })
 
-    // 绘制桌子
-    furnitureLayer.tables.forEach((table, index) => {
-      const isSelected = selectedElement && selectedElement.type === 'table' && this.data.selectedElementIndex === index
-      drawingUtils.drawTable(ctx, table, cellSize, isSelected)
-    })
+      // 绘制桌子
+      furnitureLayer.tables.forEach((table, index) => {
+        const isSelected = selectedElement && selectedElement.type === 'table' && this.data.selectedElementIndex === index
+        drawingUtils.drawTable(ctx, table, cellSize, isSelected)
+      })
 
-    // 绘制床
-    furnitureLayer.beds.forEach((bed, index) => {
-      const isSelected = selectedElement && selectedElement.type === 'bed' && this.data.selectedElementIndex === index
-      drawingUtils.drawBed(ctx, bed, cellSize, isSelected)
-    })
+      // 绘制床
+      furnitureLayer.beds.forEach((bed, index) => {
+        const isSelected = selectedElement && selectedElement.type === 'bed' && this.data.selectedElementIndex === index
+        drawingUtils.drawBed(ctx, bed, cellSize, isSelected)
+      })
+    }
+
+    // TODO: 叠加层可视化（热力图等）将在后续实现
   },
 
   /**
@@ -597,8 +601,9 @@ Page({
       const furniture = {
         x: gridCoord.x,
         y: gridCoord.y,
-        direction: wallInfo.direction,
-        wallAttached: wallInfo.attached
+        direction: wallInfo.direction, // 风扇朝向房内
+        wallAttached: wallInfo.attached,
+        wallSide: wallInfo.wallSide // 记录墙在哪一侧
       }
       furnitureLayer.fans.push(furniture)
     } else if (currentTool === 'chair') {
@@ -620,11 +625,11 @@ Page({
       }
       furnitureLayer.tables.push(furniture)
     } else if (currentTool === 'bed') {
-      // 床 2x3
+      // 床 2x3，默认朝上
       const furniture = {
         x: gridCoord.x,
         y: gridCoord.y,
-        direction: 'right',
+        direction: 'up',
         width: 2,
         height: 3
       }
@@ -640,6 +645,10 @@ Page({
 
   /**
    * 检测相邻墙壁(用于风扇挂墙)
+   * @returns {Object} {attached: boolean, direction: string, wallSide: string}
+   *   - attached: 是否挂墙
+   *   - direction: 风扇朝向（朝向房内，与墙相反）
+   *   - wallSide: 墙在哪一侧（用于绘制连线）
    */
   detectAdjacentWall(gridCoord) {
     const { designData } = this.data
@@ -647,26 +656,30 @@ Page({
 
     // 检查四个方向是否有墙壁
     const directions = [
-      { dir: 'up', dx: 0, dy: -1 },
-      { dir: 'down', dx: 0, dy: 1 },
-      { dir: 'left', dx: -1, dy: 0 },
-      { dir: 'right', dx: 1, dy: 0 }
+      { dir: 'up', opposite: 'down', dx: 0, dy: -1 }, // 墙在上方，风扇朝下
+      { dir: 'down', opposite: 'up', dx: 0, dy: 1 },  // 墙在下方，风扇朝上
+      { dir: 'left', opposite: 'right', dx: -1, dy: 0 }, // 墙在左侧，风扇朝右
+      { dir: 'right', opposite: 'left', dx: 1, dy: 0 }  // 墙在右侧，风扇朝左
     ]
 
-    for (const { dir, dx, dy } of directions) {
+    for (const { dir, opposite, dx, dy } of directions) {
       const checkX = gridCoord.x + dx
       const checkY = gridCoord.y + dy
 
       // 检查该位置是否有墙壁
       for (const wall of walls) {
         if (this.isPointOnWall({ x: checkX, y: checkY }, wall)) {
-          return { attached: true, direction: dir }
+          return {
+            attached: true,
+            direction: opposite,  // 风扇朝向与墙相反，朝向房内
+            wallSide: dir         // 墙在哪一侧
+          }
         }
       }
     }
 
-    // 没有相邻墙壁，默认朝下
-    return { attached: false, direction: 'down' }
+    // 没有相邻墙壁，默认朝上
+    return { attached: false, direction: 'up', wallSide: null }
   },
 
   /**
@@ -698,7 +711,10 @@ Page({
         const fan = furnitureLayer.fans[i]
         if (fan.x === gridCoord.x && fan.y === gridCoord.y) {
           this.setData({
-            selectedElement: { ...fan, type: 'fan' },
+            selectedElement: {
+              ...fan,
+              type: 'fan'
+            },
             selectedElementIndex: i
           })
           found = true
@@ -954,7 +970,7 @@ Page({
    * 旋转家具朝向
    */
   onRotate() {
-    const { selectedElement, selectedElementIndex, designData, currentLayer } = this.data
+    const { selectedElement, selectedElementIndex, designData, currentLayer, gridSize } = this.data
 
     if (currentLayer !== 'furniture' || !selectedElement || selectedElementIndex < 0) {
       wx.showToast({
@@ -967,25 +983,71 @@ Page({
     const type = selectedElement.type
     const furnitureLayer = designData.furniture_layer
 
+    // 风扇挂墙时不允许旋转
+    if (type === 'fan' && selectedElement.wallAttached) {
+      wx.showToast({
+        title: '挂墙风扇不可旋转',
+        icon: 'none'
+      })
+      return
+    }
+
     // 定义旋转顺序
     const rotationOrder = ['up', 'right', 'down', 'left']
     const currentDirection = selectedElement.direction
     const currentIndex = rotationOrder.indexOf(currentDirection)
     const nextDirection = rotationOrder[(currentIndex + 1) % 4]
 
-    // 更新对应家具的朝向
-    if (type === 'fan') {
-      furnitureLayer.fans[selectedElementIndex].direction = nextDirection
-    } else if (type === 'chair') {
-      furnitureLayer.chairs[selectedElementIndex].direction = nextDirection
-    } else if (type === 'table') {
-      furnitureLayer.tables[selectedElementIndex].direction = nextDirection
-    } else if (type === 'bed') {
-      furnitureLayer.beds[selectedElementIndex].direction = nextDirection
-    }
+    // 对于多格家具，需要交换宽高并检查越界
+    if (type === 'table' || type === 'bed') {
+      const furniture = type === 'table' ? furnitureLayer.tables[selectedElementIndex] : furnitureLayer.beds[selectedElementIndex]
 
-    // 更新选中元素的朝向
-    selectedElement.direction = nextDirection
+      // 计算旋转后的尺寸
+      const currentWidth = furniture.width || 1
+      const currentHeight = furniture.height || 1
+
+      // 旋转90度时交换宽高
+      const isVerticalRotation = (currentDirection === 'up' || currentDirection === 'down') && (nextDirection === 'left' || nextDirection === 'right')
+      const isHorizontalRotation = (currentDirection === 'left' || currentDirection === 'right') && (nextDirection === 'up' || nextDirection === 'down')
+
+      let newWidth = currentWidth
+      let newHeight = currentHeight
+
+      if (isVerticalRotation || isHorizontalRotation) {
+        // 交换宽高
+        newWidth = currentHeight
+        newHeight = currentWidth
+      }
+
+      // 越界检查
+      if (furniture.x + newWidth > gridSize || furniture.y + newHeight > gridSize) {
+        wx.showToast({
+          title: '旋转后超出边界',
+          icon: 'none'
+        })
+        return
+      }
+
+      // 更新宽高和朝向
+      furniture.width = newWidth
+      furniture.height = newHeight
+      furniture.direction = nextDirection
+
+      // 更新选中元素
+      selectedElement.width = newWidth
+      selectedElement.height = newHeight
+      selectedElement.direction = nextDirection
+    } else {
+      // 单格家具（风扇、椅子）只需更新朝向
+      if (type === 'fan') {
+        furnitureLayer.fans[selectedElementIndex].direction = nextDirection
+      } else if (type === 'chair') {
+        furnitureLayer.chairs[selectedElementIndex].direction = nextDirection
+      }
+
+      // 更新选中元素的朝向
+      selectedElement.direction = nextDirection
+    }
 
     this.setData({
       designData,
@@ -1046,6 +1108,25 @@ Page({
           tables: [],
           beds: []
         }
+
+        // 兼容旧版风扇数据（没有 wallSide 字段）
+        furnitureLayer.fans = furnitureLayer.fans.map(fan => {
+          if (fan.wallAttached && !fan.wallSide) {
+            // 旧数据：direction 表示墙的位置，需要转换
+            const oppositeMap = {
+              'up': 'down',
+              'down': 'up',
+              'left': 'right',
+              'right': 'left'
+            }
+            return {
+              ...fan,
+              wallSide: fan.direction, // 旧的 direction 实际是墙的位置
+              direction: oppositeMap[fan.direction] || 'down' // 风扇朝向相反
+            }
+          }
+          return fan
+        })
 
         this.setData({
           designData: {
@@ -1195,6 +1276,25 @@ Page({
             tables: [],
             beds: []
           }
+
+          // 兼容旧版风扇数据（没有 wallSide 字段）
+          furnitureLayer.fans = furnitureLayer.fans.map(fan => {
+            if (fan.wallAttached && !fan.wallSide) {
+              // 旧数据：direction 表示墙的位置，需要转换
+              const oppositeMap = {
+                'up': 'down',
+                'down': 'up',
+                'left': 'right',
+                'right': 'left'
+              }
+              return {
+                ...fan,
+                wallSide: fan.direction, // 旧的 direction 实际是墙的位置
+                direction: oppositeMap[fan.direction] || 'down' // 风扇朝向相反
+              }
+            }
+            return fan
+          })
 
           // 更新设计数据
           this.setData({
