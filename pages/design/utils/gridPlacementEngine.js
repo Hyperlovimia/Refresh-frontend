@@ -115,53 +115,60 @@ class GridStateManager {
    */
   syncFromDesignData(designData) {
     this.cellMap.clear()
+    const multiCellHandler = new MultiCellHandler()
+
+    const markElementCells = (element, type, layer) => {
+      if (!element) return
+      const normalized = {
+        width: element.width || 1,
+        height: element.height || 1,
+        ...element
+      }
+      const cells = multiCellHandler.getOccupiedCells(normalized)
+      cells.forEach(cell => {
+        this.setElementAtCell(cell.x, cell.y, { ...normalized, type, layer })
+      })
+    }
 
     // 同步结构元素
     const baseLayer = designData.base_layer
     if (baseLayer.walls) {
       baseLayer.walls.forEach(wall => {
-        this.setElementAtCell(wall.x, wall.y, { ...wall, type: 'wall', layer: 'structural' })
+        markElementCells(wall, 'wall', 'structural')
       })
     }
     if (baseLayer.doors) {
       baseLayer.doors.forEach(door => {
-        this.setElementAtCell(door.x, door.y, { ...door, type: 'door', layer: 'structural' })
+        markElementCells(door, 'door', 'structural')
       })
     }
     if (baseLayer.windows) {
       baseLayer.windows.forEach(window => {
-        this.setElementAtCell(window.x, window.y, { ...window, type: 'window', layer: 'structural' })
+        markElementCells(window, 'window', 'structural')
       })
     }
 
     // 同步家具元素
     const furnitureLayer = designData.furniture_layer
-    const multiCellHandler = new MultiCellHandler()
 
     if (furnitureLayer.fans) {
       furnitureLayer.fans.forEach(fan => {
-        this.setElementAtCell(fan.x, fan.y, { ...fan, type: 'fan', layer: 'furniture' })
+        markElementCells(fan, 'fan', 'furniture')
       })
     }
     if (furnitureLayer.chairs) {
       furnitureLayer.chairs.forEach(chair => {
-        this.setElementAtCell(chair.x, chair.y, { ...chair, type: 'chair', layer: 'furniture' })
+        markElementCells(chair, 'chair', 'furniture')
       })
     }
     if (furnitureLayer.tables) {
       furnitureLayer.tables.forEach(table => {
-        const cells = multiCellHandler.getOccupiedCells(table)
-        cells.forEach(cell => {
-          this.setElementAtCell(cell.x, cell.y, { ...table, type: 'table', layer: 'furniture' })
-        })
+        markElementCells(table, 'table', 'furniture')
       })
     }
     if (furnitureLayer.beds) {
       furnitureLayer.beds.forEach(bed => {
-        const cells = multiCellHandler.getOccupiedCells(bed)
-        cells.forEach(cell => {
-          this.setElementAtCell(cell.x, cell.y, { ...bed, type: 'bed', layer: 'furniture' })
-        })
+        markElementCells(bed, 'bed', 'furniture')
       })
     }
   }

@@ -545,7 +545,17 @@ Page({
     }
 
     const designData = this.data.designData
-    designData.base_layer.walls.push(wall)
+    this.data.placementEngine.syncDesignData(designData)
+
+    const result = this.data.placementEngine.placeElement(wall, 'wall', designData)
+    if (!result.success) {
+      wx.showToast({
+        title: result.errorMessage,
+        icon: 'none'
+      })
+      return
+    }
+
     this.setData({ designData })
 
     // 保存到本地缓存
@@ -661,10 +671,14 @@ Page({
       direction: direction
     }
 
-    if (currentTool === 'door') {
-      designData.base_layer.doors.push(element)
-    } else if (currentTool === 'window') {
-      designData.base_layer.windows.push(element)
+    this.data.placementEngine.syncDesignData(designData)
+    const result = this.data.placementEngine.placeElement(element, currentTool, designData)
+    if (!result.success) {
+      wx.showToast({
+        title: result.errorMessage,
+        icon: 'none'
+      })
+      return
     }
 
     this.setData({ designData })
