@@ -45,12 +45,16 @@ Page({
         chairs: [],
         tables: [],
         beds: []
+      },
+      overlay_layer: {
+        heatmap: null // 热力图数据: { grid: number[][], minValue, maxValue, unit }
       }
     },
 
     // UI状态
     showGrid: true, // 是否显示网格
     currentCoord: null, // 当前坐标
+    currentHeatmapValue: null, // 当前热力图值
     selectedElement: null, // 选中的元素
     selectedElementIndex: -1, // 选中元素的索引
 
@@ -212,7 +216,13 @@ Page({
       })
     }
 
-    // TODO: 叠加层可视化（热力图等）将在后续实现
+    // 绘制叠加层（热力图等）
+    if (currentLayer === 'overlay') {
+      const overlayLayer = designData.overlay_layer
+      if (overlayLayer && overlayLayer.heatmap) {
+        drawingUtils.drawHeatmap(ctx, overlayLayer.heatmap, gridSize, cellSize)
+      }
+    }
   },
 
   /**
@@ -276,6 +286,12 @@ Page({
     // 更新当前坐标
     this.setData({ currentCoord: gridCoord })
 
+    // 叠加层模式：显示热力图值，禁用绘制工具
+    if (this.data.currentLayer === 'overlay') {
+      this.updateHeatmapValue(gridCoord)
+      return
+    }
+
     // 根据当前工具处理
     if (this.data.currentTool === 'select') {
       this.handleSelect(gridCoord)
@@ -325,6 +341,12 @@ Page({
     // 更新当前坐标
     this.setData({ currentCoord: gridCoord })
 
+    // 叠加层模式：更新热力图值显示
+    if (this.data.currentLayer === 'overlay') {
+      this.updateHeatmapValue(gridCoord)
+      return
+    }
+
     // 如果正在绘制,显示预览
     if (this.data.drawing && this.data.startPoint) {
       this.renderPreview(gridCoord)
@@ -335,8 +357,11 @@ Page({
    * 触摸结束
    */
   onTouchEnd(e) {
-    // 隐藏坐标指示器
-    this.setData({ currentCoord: null })
+    // 隐藏坐标指示器和热力图值
+    this.setData({
+      currentCoord: null,
+      currentHeatmapValue: null
+    })
 
     if (!this.data.drawing) return
 
@@ -1078,6 +1103,7 @@ Page({
       const cacheData = {
         baseLayer: this.data.designData.base_layer,
         furnitureLayer: this.data.designData.furniture_layer,
+        overlayLayer: this.data.designData.overlay_layer,
         gridSize: this.data.gridSize,
         cellSize: this.data.cellSize
       }
@@ -1109,6 +1135,10 @@ Page({
           beds: []
         }
 
+        const overlayLayer = design.overlayLayer || design.overlay_layer || {
+          heatmap: null
+        }
+
         // 兼容旧版风扇数据（没有 wallSide 字段）
         furnitureLayer.fans = furnitureLayer.fans.map(fan => {
           if (fan.wallAttached && !fan.wallSide) {
@@ -1131,7 +1161,8 @@ Page({
         this.setData({
           designData: {
             base_layer: baseLayer,
-            furniture_layer: furnitureLayer
+            furniture_layer: furnitureLayer,
+            overlay_layer: overlayLayer
           },
           gridSize: design.gridSize || design.grid_size || 20,
           cellSize: design.cellSize || design.cell_size || design.grid_cell_size || 30
@@ -1155,6 +1186,7 @@ Page({
       fileName: `design_${Date.now()}.json`,
       baseLayer: this.data.designData.base_layer,
       furnitureLayer: this.data.designData.furniture_layer,
+      overlayLayer: this.data.designData.overlay_layer,
       gridSize: this.data.gridSize,
       cellSize: this.data.cellSize
     }
@@ -1277,6 +1309,10 @@ Page({
             beds: []
           }
 
+          const overlayLayer = design.overlayLayer || design.overlay_layer || {
+            heatmap: null
+          }
+
           // 兼容旧版风扇数据（没有 wallSide 字段）
           furnitureLayer.fans = furnitureLayer.fans.map(fan => {
             if (fan.wallAttached && !fan.wallSide) {
@@ -1300,7 +1336,8 @@ Page({
           this.setData({
             designData: {
               base_layer: baseLayer,
-              furniture_layer: furnitureLayer
+              furniture_layer: furnitureLayer,
+              overlay_layer: overlayLayer
             },
             gridSize: design.gridSize || design.grid_size || 20,
             cellSize: design.cellSize || design.cell_size || design.grid_cell_size || 30,
@@ -1345,5 +1382,146 @@ Page({
       showLoadDialog: false,
       selectedFile: null
     })
+  },
+
+  /**
+   * 加载分析数据（热力图）
+   */
+  onLoadAnalysis() {
+    wx.showLoading({ title: '加载分析数据...' })
+
+    // 尝试从后端API加载
+    wx.request({
+      url: `${config.apiBaseUrl}/api/analysis/heatmap`,
+      method: 'GET',
+      success: (res) => {
+        wx.hideLoading()
+        if (res.data.success && res.data.heatmap) {
+          this.loadHeatmapData(res.data.heatmap)
+        } else {
+          // 后端API不可用，加载Mock数据
+          this.loadMockHeatmap()
+        }
+      },
+      fail: (err) => {
+        wx.hideLoading()
+        // 网络错误，加载Mock数据
+        this.loadMockHeatmap()
+      }
+    })
+  },
+
+  /**
+   * 加载Mock热力图数据（用于演示）
+   */
+  loadMockHeatmap() {
+    const { gridSize } = this.data
+
+    // 生成模拟的通风效率数据
+    const grid = []
+    let minValue = Infinity
+    let maxValue = -Infinity
+
+    for (let y = 0; y < gridSize; y++) {
+      const row = []
+      for (let x = 0; x < gridSize; x++) {
+        // 使用简单的径向渐变模拟通风效率
+        // 假设中心有风扇，边缘效率较低
+        const centerX = gridSize / 2
+        const centerY = gridSize / 2
+        const distance = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2))
+        const maxDistance = Math.sqrt(centerX * centerX + centerY * centerY)
+
+        // 效率值：中心高，边缘低，加入随机扰动
+        const baseValue = 1 - (distance / maxDistance)
+        const noise = (Math.random() - 0.5) * 0.2
+        const value = Math.max(0, Math.min(1, baseValue + noise)) * 100 // 0-100范围
+
+        row.push(value)
+        minValue = Math.min(minValue, value)
+        maxValue = Math.max(maxValue, value)
+      }
+      grid.push(row)
+    }
+
+    const heatmapData = {
+      grid: grid,
+      minValue: minValue,
+      maxValue: maxValue,
+      unit: '%' // 百分比单位
+    }
+
+    this.loadHeatmapData(heatmapData)
+  },
+
+  /**
+   * 加载热力图数据到叠加层
+   */
+  loadHeatmapData(heatmapData) {
+    const designData = this.data.designData
+    designData.overlay_layer.heatmap = heatmapData
+
+    this.setData({ designData })
+
+    // 切换到叠加层以显示热力图
+    if (this.data.currentLayer !== 'overlay') {
+      this.setData({ currentLayer: 'overlay' })
+    }
+
+    this.render()
+
+    // 保存到本地缓存
+    this.saveToLocalCache()
+
+    wx.showToast({
+      title: '分析数据加载成功',
+      icon: 'success'
+    })
+  },
+
+  /**
+   * 清除热力图
+   */
+  onClearHeatmap() {
+    const designData = this.data.designData
+    designData.overlay_layer.heatmap = null
+
+    this.setData({ designData })
+    this.render()
+
+    // 保存到本地缓存
+    this.saveToLocalCache()
+
+    wx.showToast({
+      title: '热力图已清除',
+      icon: 'success'
+    })
+  },
+
+  /**
+   * 更新热力图值显示（在叠加层触摸时调用）
+   */
+  updateHeatmapValue(gridCoord) {
+    const { designData } = this.data
+    const heatmap = designData.overlay_layer.heatmap
+
+    if (!heatmap || !heatmap.grid) {
+      this.setData({ currentHeatmapValue: null })
+      return
+    }
+
+    // 检查坐标是否有效
+    if (gridCoord.y >= 0 && gridCoord.y < heatmap.grid.length &&
+        gridCoord.x >= 0 && gridCoord.x < heatmap.grid[gridCoord.y].length) {
+      const value = heatmap.grid[gridCoord.y][gridCoord.x]
+      this.setData({
+        currentHeatmapValue: {
+          value: value,
+          unit: heatmap.unit
+        }
+      })
+    } else {
+      this.setData({ currentHeatmapValue: null })
+    }
   }
 })

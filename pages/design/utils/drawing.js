@@ -321,6 +321,77 @@ function drawBed(ctx, bed, cellSize, isSelected = false) {
   }
 }
 
+/**
+ * 绘制热力图
+ * @param {CanvasRenderingContext2D} ctx - Canvas 上下文
+ * @param {Object} heatmapData - 热力图数据 { grid: number[][], minValue, maxValue, unit }
+ * @param {number} gridSize - 网格大小（行列数）
+ * @param {number} cellSize - 单元格大小
+ */
+function drawHeatmap(ctx, heatmapData, gridSize, cellSize) {
+  if (!heatmapData || !heatmapData.grid) return
+
+  const { grid, minValue, maxValue } = heatmapData
+  const range = maxValue - minValue
+
+  // 遍历热力图网格
+  for (let y = 0; y < grid.length; y++) {
+    for (let x = 0; x < grid[y].length; x++) {
+      const value = grid[y][x]
+
+      // 归一化值到 0-1 范围
+      const normalized = range > 0 ? (value - minValue) / range : 0.5
+
+      // 颜色映射：蓝色(低) -> 绿色(中) -> 黄色 -> 红色(高)
+      const color = valueToColor(normalized)
+
+      // 绘制格子（半透明叠加）
+      const pos = gridUtils.gridToPixel(x, y, cellSize)
+      ctx.fillStyle = color
+      ctx.fillRect(pos.x, pos.y, cellSize, cellSize)
+    }
+  }
+}
+
+/**
+ * 将归一化值(0-1)映射为颜色
+ * @param {number} value - 归一化值 [0, 1]
+ * @returns {string} - RGBA 颜色字符串
+ */
+function valueToColor(value) {
+  // 颜色梯度：蓝 -> 青 -> 绿 -> 黄 -> 红
+  let r, g, b
+
+  if (value < 0.25) {
+    // 蓝色 -> 青色
+    const t = value / 0.25
+    r = 0
+    g = Math.floor(255 * t)
+    b = 255
+  } else if (value < 0.5) {
+    // 青色 -> 绿色
+    const t = (value - 0.25) / 0.25
+    r = 0
+    g = 255
+    b = Math.floor(255 * (1 - t))
+  } else if (value < 0.75) {
+    // 绿色 -> 黄色
+    const t = (value - 0.5) / 0.25
+    r = Math.floor(255 * t)
+    g = 255
+    b = 0
+  } else {
+    // 黄色 -> 红色
+    const t = (value - 0.75) / 0.25
+    r = 255
+    g = Math.floor(255 * (1 - t))
+    b = 0
+  }
+
+  // 返回半透明颜色（alpha=0.6）以不完全遮挡底层
+  return `rgba(${r}, ${g}, ${b}, 0.6)`
+}
+
 module.exports = {
   drawWall,
   drawRoom,
@@ -330,5 +401,6 @@ module.exports = {
   drawChair,
   drawTable,
   drawBed,
-  clearCanvas
+  clearCanvas,
+  drawHeatmap
 }

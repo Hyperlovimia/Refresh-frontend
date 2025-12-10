@@ -116,6 +116,26 @@
         </view>
       </view>
 
+      <!-- 叠加层工具 -->
+      <view class="tool-section" wx:if="{{currentLayer === 'overlay'}}">
+        <text class="section-title">分析</text>
+        <view
+          class="tool-item"
+          bind:tap="onLoadAnalysis"
+        >
+          <text class="tool-icon">📊</text>
+          <text class="tool-name">加载分析</text>
+        </view>
+        <view
+          class="tool-item"
+          wx:if="{{designData.overlay_layer.heatmap}}"
+          bind:tap="onClearHeatmap"
+        >
+          <text class="tool-icon">🧹</text>
+          <text class="tool-name">清除热力图</text>
+        </view>
+      </view>
+
       <view class="tool-section">
         <text class="section-title">操作</text>
         <view
@@ -165,14 +185,20 @@
       <!-- 坐标显示 -->
       <view class="coord-display" wx:if="{{currentCoord}}">
         坐标: ({{currentCoord.x}}, {{currentCoord.y}})
+        <text wx:if="{{currentHeatmapValue}}">
+          | 值: {{currentHeatmapValue.value.toFixed(1)}}{{currentHeatmapValue.unit}}
+        </text>
       </view>
     </view>
   </view>
 
   <!-- 底部状态栏 -->
   <view class="status-bar">
-    <text>当前工具: {{toolNames[currentTool]}}</text>
+    <text>当前工具: {{toolNames[currentTool] || '无'}}</text>
     <text wx:if="{{selectedElement}}">选中: {{selectedElement.type}}</text>
+    <text wx:if="{{currentLayer === 'overlay' && designData.overlay_layer.heatmap}}">
+      值范围: {{designData.overlay_layer.heatmap.minValue.toFixed(1)}}{{designData.overlay_layer.heatmap.unit}} - {{designData.overlay_layer.heatmap.maxValue.toFixed(1)}}{{designData.overlay_layer.heatmap.unit}}
+    </text>
   </view>
 
   <!-- 加载设计文件对话框 -->
