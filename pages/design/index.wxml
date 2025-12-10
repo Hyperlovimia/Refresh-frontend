@@ -117,17 +117,17 @@
       </view>
 
       <!-- 叠加层工具 -->
-      <view class="tool-section" wx:if="{{currentLayer === 'overlay'}}">
+      <view class="tool-section overlay-tools" wx:if="{{currentLayer === 'overlay'}}">
         <text class="section-title">分析</text>
         <view
-          class="tool-item"
+          class="tool-item tool-item-load-analysis"
           bind:tap="onLoadAnalysis"
         >
           <text class="tool-icon">📊</text>
           <text class="tool-name">加载分析</text>
         </view>
         <view
-          class="tool-item"
+          class="tool-item tool-item-clear-heatmap"
           wx:if="{{designData.overlay_layer.heatmap}}"
           bind:tap="onClearHeatmap"
         >
