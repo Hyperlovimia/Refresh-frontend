@@ -59,8 +59,8 @@
         "text": "首页"
       },
       {
-        "pagePath": "pages/message/index",
-        "text": "消息"
+        "pagePath": "pages/design/index",
+        "text": "设计"
       },
       {
         "pagePath": "pages/my/index",

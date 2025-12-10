@@ -18,6 +18,11 @@ Component({
         isSidebar: true,
       },
       {
+        title: '设计页',
+        url: 'pages/design/index',
+        isSidebar: true,
+      },
+      {
         title: '搜索页',
         url: 'pages/search/index',
         isSidebar: false,
@@ -30,7 +35,7 @@ Component({
       {
         title: '消息列表页',
         url: 'pages/message/index',
-        isSidebar: true,
+        isSidebar: false,
       },
       {
         title: '对话页',

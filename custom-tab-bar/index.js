@@ -3,7 +3,7 @@ const app = getApp();
 Component({
   data: {
     value: '', // 初始值设置为空，避免第一次加载时闪烁
-    unreadNum: 0, // 未读消息数量
+    unreadNum: 0, // 未读消息数量（保留但不再使用）
     list: [
       {
         icon: 'home',
@@ -11,9 +11,9 @@ Component({
         label: '首页',
       },
       {
-        icon: 'chat',
-        value: 'notice',
-        label: '消息',
+        icon: 'edit',
+        value: 'design',
+        label: '设计',
       },
       {
         icon: 'user',
