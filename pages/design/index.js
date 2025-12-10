@@ -32,6 +32,30 @@ Page({
       select: '选择'
     },
 
+    // 风扇参数
+    fanDirection: 'C', // 风扇方向: N, NE, E, SE, S, SW, W, NW, C
+    mountFaceOptions: [
+      { value: 'N', label: '上 (N)' },
+      { value: 'S', label: '下 (S)' },
+      { value: 'W', label: '左 (W)' },
+      { value: 'E', label: '右 (E)' }
+    ],
+    mountFaceIndex: 0, // 默认选择上方
+    mountOffset: 0.5, // 沿墙偏移 0-1
+    rotationMin: -45, // 转动角度最小值
+    rotationMax: 45, // 转动角度最大值
+    speedMin: 0, // 转速最小值
+    speedMax: 120, // 转速最大值
+
+    // 家具朝向参数
+    orientationOptions: [
+      { value: 'N', label: '朝上 (N)' },
+      { value: 'E', label: '朝右 (E)' },
+      { value: 'S', label: '朝下 (S)' },
+      { value: 'W', label: '朝左 (W)' }
+    ],
+    orientationIndex: 0, // 默认朝上
+
     // 设计数据
     designData: {
       base_layer: {
@@ -222,7 +246,7 @@ Page({
     // 绘制墙壁
     baseLayer.walls.forEach((wall, index) => {
       const isSelected = selectedElement && selectedElement.type === 'wall' && this.data.selectedElementIndex === index
-      drawingUtils.drawWall(ctx, wall, cellSize, '#424242', isSelected)
+      drawingUtils.drawWall(ctx, wall, cellSize, '#000000', isSelected)
     })
 
     // 绘制门
@@ -441,17 +465,21 @@ Page({
         snappedEndX = startPoint.x
       }
 
-      // 预览墙壁
-      const start = gridUtils.gridToPixel(startPoint.x, startPoint.y, cellSize)
-      const end = gridUtils.gridToPixel(snappedEndX, snappedEndY, cellSize)
+      // 转换为矩形格式预览墙壁
+      const x = Math.min(startPoint.x, snappedEndX)
+      const y = Math.min(startPoint.y, snappedEndY)
+      const width = Math.abs(snappedEndX - startPoint.x) + 1
+      const height = Math.abs(snappedEndY - startPoint.y) + 1
 
+      const pos = gridUtils.gridToPixel(x, y, cellSize)
+      ctx.fillStyle = 'rgba(66, 66, 66, 0.5)'
+      ctx.fillRect(pos.x, pos.y, width * cellSize, height * cellSize)
+
+      // 绘制虚线边框
       ctx.strokeStyle = '#9e9e9e'
-      ctx.lineWidth = 6
+      ctx.lineWidth = 2
       ctx.setLineDash([5, 5])
-      ctx.beginPath()
-      ctx.moveTo(start.x + cellSize / 2, start.y + cellSize / 2)
-      ctx.lineTo(end.x + cellSize / 2, end.y + cellSize / 2)
-      ctx.stroke()
+      ctx.strokeRect(pos.x, pos.y, width * cellSize, height * cellSize)
       ctx.setLineDash([])
     } else if (currentTool === 'room') {
       // 预览房间
@@ -494,12 +522,19 @@ Page({
       finalEndX = startPoint.x
     }
 
+    // 转换为矩形格式 {x, y, width, height}
+    const x = Math.min(startPoint.x, finalEndX)
+    const y = Math.min(startPoint.y, finalEndY)
+    const width = Math.abs(finalEndX - startPoint.x) + 1
+    const height = Math.abs(finalEndY - startPoint.y) + 1
+
     const wall = {
+      id: Date.now() + Math.random(),
       type: 'wall',
-      startX: startPoint.x,
-      startY: startPoint.y,
-      endX: finalEndX,
-      endY: finalEndY
+      x: x,
+      y: y,
+      width: width,
+      height: height
     }
 
     const designData = this.data.designData
@@ -523,6 +558,7 @@ Page({
     const height = Math.abs(endPoint.y - startPoint.y) + 1
 
     const room = {
+      id: Date.now() + Math.random(),
       type: 'room',
       x: x,
       y: y,
@@ -551,36 +587,31 @@ Page({
 
     // 检查周围格子是否有墙壁
     for (const wall of walls) {
-      // 检查墙壁是否经过当前格子或相邻格子
-      const isHorizontal = wall.startY === wall.endY
-      const isVertical = wall.startX === wall.endX
+      const minX = wall.x
+      const maxX = wall.x + wall.width - 1
+      const minY = wall.y
+      const maxY = wall.y + wall.height - 1
+      const isHorizontal = wall.height === 1 && wall.width > 1
+      const isVertical = wall.width === 1 && wall.height > 1
 
       if (isHorizontal) {
-        const minX = Math.min(wall.startX, wall.endX)
-        const maxX = Math.max(wall.startX, wall.endX)
-        const y = wall.startY
-
         // 检查是否与当前格子相邻或重合
-        if (y >= gridCoord.y - 1 && y <= gridCoord.y + 1 &&
+        if (minY >= gridCoord.y - 1 && minY <= gridCoord.y + 1 &&
             gridCoord.x >= minX && gridCoord.x <= maxX) {
           hasHorizontalWall = true
         }
       }
 
       if (isVertical) {
-        const minY = Math.min(wall.startY, wall.endY)
-        const maxY = Math.max(wall.startY, wall.endY)
-        const x = wall.startX
-
         // 检查是否与当前格子相邻或重合
-        if (x >= gridCoord.x - 1 && x <= gridCoord.x + 1 &&
+        if (minX >= gridCoord.x - 1 && minX <= gridCoord.x + 1 &&
             gridCoord.y >= minY && gridCoord.y <= maxY) {
           hasVerticalWall = true
         }
       }
     }
 
-    // 根据周`围墙壁方向决定门窗方向
+    // 根据周围墙壁方向决定门窗方向
     // 如果有水平墙壁，门窗应该是水平的(在墙上开洞)
     // 如果有垂直墙壁，门窗应该是垂直的(在墙上开洞)
     // 如果都有或都没有，默认水平
@@ -604,9 +635,12 @@ Page({
     const direction = this.detectDoorWindowDirection(gridCoord)
 
     const element = {
+      id: Date.now() + Math.random(),
       type: currentTool,
       x: gridCoord.x,
       y: gridCoord.y,
+      width: 1, // 占满整个格子
+      height: 1, // 占满整个格子
       direction: direction
     }
 
@@ -627,48 +661,148 @@ Page({
    * 放置家具
    */
   placeFurniture(gridCoord) {
-    const { currentTool, designData } = this.data
+    const { currentTool, designData, fanDirection, mountFaceOptions, mountFaceIndex, mountOffset, rotationMin, rotationMax, speedMin, speedMax, orientationOptions, orientationIndex } = this.data
     const furnitureLayer = designData.furniture_layer
 
     if (currentTool === 'fan') {
-      // 风扇需要检测挂墙
-      const wallInfo = this.detectAdjacentWall(gridCoord)
-      const furniture = {
-        x: gridCoord.x,
-        y: gridCoord.y,
-        direction: wallInfo.direction, // 风扇朝向房内
-        wallAttached: wallInfo.attached,
-        wallSide: wallInfo.wallSide // 记录墙在哪一侧
+      // 风扇放置逻辑，参考原始系统
+      const selectedFace = mountFaceOptions[mountFaceIndex].value
+      
+      // 尝试在点击的格子内找到墙体
+      let chosenWall = null
+      for (let i = 0; i < designData.base_layer.walls.length; i++) {
+        const wall = designData.base_layer.walls[i]
+        const wx0 = wall.x
+        const wy0 = wall.y
+        const wx1 = wall.x + Math.max(1, wall.width) - 1
+        const wy1 = wall.y + Math.max(1, wall.height) - 1
+        if (gridCoord.x >= wx0 && gridCoord.x <= wx1 && gridCoord.y >= wy0 && gridCoord.y <= wy1) {
+          chosenWall = wall
+          break
+        }
       }
-      furnitureLayer.fans.push(furniture)
-    } else if (currentTool === 'chair') {
-      // 椅子默认朝上
-      const furniture = {
-        x: gridCoord.x,
-        y: gridCoord.y,
-        direction: 'up'
+
+      let mountInfo = null
+      if (chosenWall) {
+        // 用户点击的是墙体内部：使用 UI 指定的面与偏移计算挂载格
+        const wall = chosenWall
+        const face = selectedFace
+        let cellX = wall.x
+        let cellY = wall.y
+        
+        if (face === 'N') {
+          const idx = Math.round(wall.x + mountOffset * Math.max(0, wall.width - 1))
+          cellX = Math.max(wall.x, Math.min(wall.x + Math.max(0, wall.width - 1), idx))
+          cellY = wall.y
+        } else if (face === 'S') {
+          const idx = Math.round(wall.x + mountOffset * Math.max(0, wall.width - 1))
+          cellX = Math.max(wall.x, Math.min(wall.x + Math.max(0, wall.width - 1), idx))
+          cellY = wall.y + Math.max(0, wall.height - 1)
+        } else if (face === 'W') {
+          const idx = Math.round(wall.y + mountOffset * Math.max(0, wall.height - 1))
+          cellY = Math.max(wall.y, Math.min(wall.y + Math.max(0, wall.height - 1), idx))
+          cellX = wall.x
+        } else { // E
+          const idx = Math.round(wall.y + mountOffset * Math.max(0, wall.height - 1))
+          cellY = Math.max(wall.y, Math.min(wall.y + Math.max(0, wall.height - 1), idx))
+          cellX = wall.x + Math.max(0, wall.width - 1)
+        }
+
+        mountInfo = { wall: wall, face: face, offset: mountOffset, cellX: cellX, cellY: cellY }
+      } else {
+        // 点击的格子不在墙体内部，尝试查找紧邻的墙体
+        const adj = this.getAdjacentWall(gridCoord.x, gridCoord.y)
+        if (!adj) {
+          wx.showToast({
+            title: '风扇必须挂在墙体上或紧邻墙体的格子',
+            icon: 'none'
+          })
+          return
+        }
+        const face = selectedFace || adj.face
+        mountInfo = { wall: adj.wall, face: face, offset: adj.offset, cellX: adj.cellX, cellY: adj.cellY }
       }
-      furnitureLayer.chairs.push(furniture)
-    } else if (currentTool === 'table') {
-      // 桌子 2x1
-      const furniture = {
-        x: gridCoord.x,
-        y: gridCoord.y,
-        direction: 'up',
-        width: 2,
+
+      const fan = {
+        id: Date.now() + Math.random(),
+        wallId: mountInfo.wall.id,
+        mount_face: mountInfo.face,
+        mount_offset: mountInfo.offset,
+        mount_cell_x: mountInfo.cellX,
+        mount_cell_y: mountInfo.cellY,
+        default_direction: fanDirection,
+        direction: fanDirection,
+        rotation_range: { min: rotationMin, max: rotationMax },
+        speed_range: { min: speedMin, max: speedMax },
+        width: 1,
         height: 1
       }
-      furnitureLayer.tables.push(furniture)
-    } else if (currentTool === 'bed') {
-      // 床 2x3，默认朝上
-      const furniture = {
+
+      furnitureLayer.fans.push(fan)
+    } else if (currentTool === 'chair') {
+      // 椅子固定为 1x1
+      const orientation = orientationOptions[orientationIndex].value
+      const chair = {
+        id: Date.now() + Math.random(),
         x: gridCoord.x,
         y: gridCoord.y,
-        direction: 'up',
-        width: 2,
-        height: 3
+        width: 1,
+        height: 1,
+        orientation: orientation
       }
-      furnitureLayer.beds.push(furniture)
+      furnitureLayer.chairs.push(chair)
+    } else if (currentTool === 'table') {
+      // 桌子默认 2x1，可根据朝向旋转
+      const orientation = orientationOptions[orientationIndex].value
+      let width = 2, height = 1
+      if (orientation === 'E' || orientation === 'W') {
+        [width, height] = [height, width]
+      }
+      
+      // 检查是否越界
+      if (gridCoord.x + width > this.data.gridSize || gridCoord.y + height > this.data.gridSize) {
+        wx.showToast({
+          title: '放置位置超出边界',
+          icon: 'none'
+        })
+        return
+      }
+
+      const table = {
+        id: Date.now() + Math.random(),
+        x: gridCoord.x,
+        y: gridCoord.y,
+        width: width,
+        height: height,
+        orientation: orientation
+      }
+      furnitureLayer.tables.push(table)
+    } else if (currentTool === 'bed') {
+      // 床默认 2x3，可根据朝向旋转
+      const orientation = orientationOptions[orientationIndex].value
+      let width = 2, height = 3
+      if (orientation === 'E' || orientation === 'W') {
+        [width, height] = [height, width]
+      }
+      
+      // 检查是否越界
+      if (gridCoord.x + width > this.data.gridSize || gridCoord.y + height > this.data.gridSize) {
+        wx.showToast({
+          title: '放置位置超出边界',
+          icon: 'none'
+        })
+        return
+      }
+
+      const bed = {
+        id: Date.now() + Math.random(),
+        x: gridCoord.x,
+        y: gridCoord.y,
+        width: width,
+        height: height,
+        orientation: orientation
+      }
+      furnitureLayer.beds.push(bed)
     }
 
     this.setData({ designData })
@@ -718,13 +852,62 @@ Page({
   },
 
   /**
+   * 查找给定画格是否紧邻某个墙体（原始系统方法）
+   * @param {number} gridX 
+   * @param {number} gridY 
+   * @returns {Object|null} 返回墙体信息或null
+   */
+  getAdjacentWall(gridX, gridY) {
+    const { designData } = this.data
+    const walls = designData.base_layer.walls
+
+    // 遍历每个墙体，检查墙体覆盖的每个格子
+    for (let i = 0; i < walls.length; i++) {
+      const wall = walls[i]
+
+      const startX = wall.x
+      const startY = wall.y
+      const endX = wall.x + Math.max(1, wall.width) - 1
+      const endY = wall.y + Math.max(1, wall.height) - 1
+
+      for (let wy = startY; wy <= endY; wy++) {
+        for (let wx = startX; wx <= endX; wx++) {
+          // 检查四个方向的相邻格
+          if (gridX === wx - 1 && gridY === wy) {
+            // 点击在墙格左侧 -> 挂在墙的西侧 (W)，偏移按垂直方向计算
+            const offset = (wy - startY + 0.5) / Math.max(1, wall.height)
+            return { wall: wall, face: 'W', offset: Math.max(0, Math.min(1, offset)), cellX: wx, cellY: wy }
+          }
+          if (gridX === wx + 1 && gridY === wy) {
+            // 右侧 -> E
+            const offset = (wy - startY + 0.5) / Math.max(1, wall.height)
+            return { wall: wall, face: 'E', offset: Math.max(0, Math.min(1, offset)), cellX: wx, cellY: wy }
+          }
+          if (gridX === wx && gridY === wy - 1) {
+            // 上方 -> N
+            const offset = (wx - startX + 0.5) / Math.max(1, wall.width)
+            return { wall: wall, face: 'N', offset: Math.max(0, Math.min(1, offset)), cellX: wx, cellY: wy }
+          }
+          if (gridX === wx && gridY === wy + 1) {
+            // 下方 -> S
+            const offset = (wx - startX + 0.5) / Math.max(1, wall.width)
+            return { wall: wall, face: 'S', offset: Math.max(0, Math.min(1, offset)), cellX: wx, cellY: wy }
+          }
+        }
+      }
+    }
+
+    return null
+  },
+
+  /**
    * 判断点是否在墙壁上
    */
   isPointOnWall(point, wall) {
-    const minX = Math.min(wall.startX, wall.endX)
-    const maxX = Math.max(wall.startX, wall.endX)
-    const minY = Math.min(wall.startY, wall.endY)
-    const maxY = Math.max(wall.startY, wall.endY)
+    const minX = wall.x
+    const maxX = wall.x + wall.width - 1
+    const minY = wall.y
+    const maxY = wall.y + wall.height - 1
 
     return point.x >= minX && point.x <= maxX && point.y >= minY && point.y <= maxY
   },
@@ -741,10 +924,21 @@ Page({
       // 家具层选择
       const furnitureLayer = designData.furniture_layer
 
-      // 检查风扇
+      // 检查风扇（支持挂墙风扇的选择）
       for (let i = furnitureLayer.fans.length - 1; i >= 0; i--) {
         const fan = furnitureLayer.fans[i]
-        if (fan.x === gridCoord.x && fan.y === gridCoord.y) {
+        let isInFan = false
+        
+        if (fan.mount_cell_x !== undefined && fan.mount_cell_y !== undefined) {
+          // 挂墙风扇，检查挂载格子
+          isInFan = (gridCoord.x === fan.mount_cell_x && gridCoord.y === fan.mount_cell_y)
+        } else if (fan.x !== undefined && fan.y !== undefined) {
+          // 普通风扇
+          isInFan = (gridCoord.x >= fan.x && gridCoord.x < fan.x + (fan.width || 1) && 
+                     gridCoord.y >= fan.y && gridCoord.y < fan.y + (fan.height || 1))
+        }
+        
+        if (isInFan) {
           this.setData({
             selectedElement: {
               ...fan,
@@ -752,6 +946,7 @@ Page({
             },
             selectedElementIndex: i
           })
+          this.syncFanControlsToSelected(fan)
           found = true
           break
         }
@@ -761,11 +956,12 @@ Page({
       if (!found) {
         for (let i = furnitureLayer.chairs.length - 1; i >= 0; i--) {
           const chair = furnitureLayer.chairs[i]
-          if (chair.x === gridCoord.x && chair.y === gridCoord.y) {
+          if (this.isPointInFurniture(gridCoord, chair)) {
             this.setData({
               selectedElement: { ...chair, type: 'chair' },
               selectedElementIndex: i
             })
+            this.syncFurnitureControlsToSelected(chair)
             found = true
             break
           }
@@ -781,6 +977,7 @@ Page({
               selectedElement: { ...table, type: 'table' },
               selectedElementIndex: i
             })
+            this.syncFurnitureControlsToSelected(table)
             found = true
             break
           }
@@ -796,6 +993,7 @@ Page({
               selectedElement: { ...bed, type: 'bed' },
               selectedElementIndex: i
             })
+            this.syncFurnitureControlsToSelected(bed)
             found = true
             break
           }
@@ -900,11 +1098,10 @@ Page({
   isPointNearWall(point, wall) {
     const threshold = 1 // 容错范围
 
-    // 检查点是否在墙壁的包围盒内
-    const minX = Math.min(wall.startX, wall.endX) - threshold
-    const maxX = Math.max(wall.startX, wall.endX) + threshold
-    const minY = Math.min(wall.startY, wall.endY) - threshold
-    const maxY = Math.max(wall.startY, wall.endY) + threshold
+    const minX = wall.x - threshold
+    const maxX = wall.x + wall.width - 1 + threshold
+    const minY = wall.y - threshold
+    const maxY = wall.y + wall.height - 1 + threshold
 
     return point.x >= minX && point.x <= maxX && point.y >= minY && point.y <= maxY
   },
@@ -1533,5 +1730,381 @@ Page({
     } else {
       this.setData({ currentHeatmapValue: null })
     }
+  },
+
+  /**
+   * 选择风扇方向
+   */
+  onSelectFanDirection(e) {
+    const direction = e.currentTarget.dataset.direction
+    this.setData({ fanDirection: direction })
+
+    // 如果当前选中的是风扇，同步更新
+    if (this.data.selectedElement && this.data.selectedElement.type === 'fan') {
+      this.updateSelectedFanDirection(direction)
+    }
+  },
+
+  /**
+   * 更新选中风扇的方向
+   */
+  updateSelectedFanDirection(direction) {
+    const { selectedElement, selectedElementIndex, designData } = this.data
+    if (!selectedElement || selectedElement.type !== 'fan' || selectedElementIndex < 0) return
+
+    // 更新数据
+    const fan = designData.furniture_layer.fans[selectedElementIndex]
+    fan.default_direction = direction
+    fan.direction = direction
+
+    // 更新选中元素
+    selectedElement.default_direction = direction
+    selectedElement.direction = direction
+
+    this.setData({
+      designData,
+      selectedElement
+    })
+
+    this.render()
+    this.saveToLocalCache()
+  },
+
+  /**
+   * 挂墙面选择变化
+   */
+  onMountFaceChange(e) {
+    const index = e.detail.value
+    this.setData({ mountFaceIndex: index })
+
+    // 如果当前选中的是风扇，同步更新
+    if (this.data.selectedElement && this.data.selectedElement.type === 'fan') {
+      const face = this.data.mountFaceOptions[index].value
+      this.updateSelectedFanMountFace(face)
+    }
+  },
+
+  /**
+   * 更新选中风扇的挂墙面
+   */
+  updateSelectedFanMountFace(face) {
+    const { selectedElement, selectedElementIndex, designData } = this.data
+    if (!selectedElement || selectedElement.type !== 'fan' || selectedElementIndex < 0) return
+
+    const fan = designData.furniture_layer.fans[selectedElementIndex]
+    fan.mount_face = face
+
+    // 重新计算挂载位置（如果有关联的墙体）
+    if (fan.wallId) {
+      const wall = designData.base_layer.walls.find(w => w.id === fan.wallId)
+      if (wall) {
+        const offset = this.data.mountOffset
+        let cellX = wall.x
+        let cellY = wall.y
+
+        if (face === 'N') {
+          const idx = Math.round(wall.x + offset * Math.max(0, wall.width - 1))
+          cellX = Math.max(wall.x, Math.min(wall.x + Math.max(0, wall.width - 1), idx))
+          cellY = wall.y
+        } else if (face === 'S') {
+          const idx = Math.round(wall.x + offset * Math.max(0, wall.width - 1))
+          cellX = Math.max(wall.x, Math.min(wall.x + Math.max(0, wall.width - 1), idx))
+          cellY = wall.y + Math.max(0, wall.height - 1)
+        } else if (face === 'W') {
+          const idx = Math.round(wall.y + offset * Math.max(0, wall.height - 1))
+          cellY = Math.max(wall.y, Math.min(wall.y + Math.max(0, wall.height - 1), idx))
+          cellX = wall.x
+        } else { // E
+          const idx = Math.round(wall.y + offset * Math.max(0, wall.height - 1))
+          cellY = Math.max(wall.y, Math.min(wall.y + Math.max(0, wall.height - 1), idx))
+          cellX = wall.x + Math.max(0, wall.width - 1)
+        }
+
+        fan.mount_cell_x = cellX
+        fan.mount_cell_y = cellY
+        selectedElement.mount_cell_x = cellX
+        selectedElement.mount_cell_y = cellY
+      }
+    }
+
+    selectedElement.mount_face = face
+
+    this.setData({
+      designData,
+      selectedElement
+    })
+
+    this.render()
+    this.saveToLocalCache()
+  },
+
+  /**
+   * 沿墙偏移变化
+   */
+  onMountOffsetChange(e) {
+    const offset = e.detail.value
+    this.setData({ mountOffset: offset })
+
+    // 如果当前选中的是风扇，同步更新
+    if (this.data.selectedElement && this.data.selectedElement.type === 'fan') {
+      this.updateSelectedFanMountOffset(offset)
+    }
+  },
+
+  /**
+   * 更新选中风扇的沿墙偏移
+   */
+  updateSelectedFanMountOffset(offset) {
+    const { selectedElement, selectedElementIndex, designData } = this.data
+    if (!selectedElement || selectedElement.type !== 'fan' || selectedElementIndex < 0) return
+
+    const fan = designData.furniture_layer.fans[selectedElementIndex]
+    fan.mount_offset = offset
+
+    // 重新计算挂载位置
+    if (fan.wallId && fan.mount_face) {
+      const wall = designData.base_layer.walls.find(w => w.id === fan.wallId)
+      if (wall) {
+        const face = fan.mount_face
+        let cellX = wall.x
+        let cellY = wall.y
+
+        if (face === 'N') {
+          const idx = Math.round(wall.x + offset * Math.max(0, wall.width - 1))
+          cellX = Math.max(wall.x, Math.min(wall.x + Math.max(0, wall.width - 1), idx))
+          cellY = wall.y
+        } else if (face === 'S') {
+          const idx = Math.round(wall.x + offset * Math.max(0, wall.width - 1))
+          cellX = Math.max(wall.x, Math.min(wall.x + Math.max(0, wall.width - 1), idx))
+          cellY = wall.y + Math.max(0, wall.height - 1)
+        } else if (face === 'W') {
+          const idx = Math.round(wall.y + offset * Math.max(0, wall.height - 1))
+          cellY = Math.max(wall.y, Math.min(wall.y + Math.max(0, wall.height - 1), idx))
+          cellX = wall.x
+        } else { // E
+          const idx = Math.round(wall.y + offset * Math.max(0, wall.height - 1))
+          cellY = Math.max(wall.y, Math.min(wall.y + Math.max(0, wall.height - 1), idx))
+          cellX = wall.x + Math.max(0, wall.width - 1)
+        }
+
+        fan.mount_cell_x = cellX
+        fan.mount_cell_y = cellY
+        selectedElement.mount_cell_x = cellX
+        selectedElement.mount_cell_y = cellY
+      }
+    }
+
+    selectedElement.mount_offset = offset
+
+    this.setData({
+      designData,
+      selectedElement
+    })
+
+    this.render()
+    this.saveToLocalCache()
+  },
+
+  /**
+   * 转动角度范围变化
+   */
+  onRotationMinChange(e) {
+    const value = parseFloat(e.detail.value) || -45
+    this.setData({ rotationMin: value })
+    this.updateSelectedFanRotationRange()
+  },
+
+  onRotationMaxChange(e) {
+    const value = parseFloat(e.detail.value) || 45
+    this.setData({ rotationMax: value })
+    this.updateSelectedFanRotationRange()
+  },
+
+  /**
+   * 更新选中风扇的转动角度范围
+   */
+  updateSelectedFanRotationRange() {
+    const { selectedElement, selectedElementIndex, designData, rotationMin, rotationMax } = this.data
+    if (!selectedElement || selectedElement.type !== 'fan' || selectedElementIndex < 0) return
+
+    const fan = designData.furniture_layer.fans[selectedElementIndex]
+    fan.rotation_range = { min: rotationMin, max: rotationMax }
+    selectedElement.rotation_range = { min: rotationMin, max: rotationMax }
+
+    this.setData({
+      designData,
+      selectedElement
+    })
+
+    this.saveToLocalCache()
+  },
+
+  /**
+   * 转速范围变化
+   */
+  onSpeedMinChange(e) {
+    const value = parseFloat(e.detail.value) || 0
+    this.setData({ speedMin: value })
+    this.updateSelectedFanSpeedRange()
+  },
+
+  onSpeedMaxChange(e) {
+    const value = parseFloat(e.detail.value) || 120
+    this.setData({ speedMax: value })
+    this.updateSelectedFanSpeedRange()
+  },
+
+  /**
+   * 更新选中风扇的转速范围
+   */
+  updateSelectedFanSpeedRange() {
+    const { selectedElement, selectedElementIndex, designData, speedMin, speedMax } = this.data
+    if (!selectedElement || selectedElement.type !== 'fan' || selectedElementIndex < 0) return
+
+    const fan = designData.furniture_layer.fans[selectedElementIndex]
+    fan.speed_range = { min: speedMin, max: speedMax }
+    selectedElement.speed_range = { min: speedMin, max: speedMax }
+
+    this.setData({
+      designData,
+      selectedElement
+    })
+
+    this.saveToLocalCache()
+  },
+
+  /**
+   * 家具朝向变化
+   */
+  onOrientationChange(e) {
+    const index = e.detail.value
+    this.setData({ orientationIndex: index })
+
+    // 如果当前选中的是家具，同步更新
+    if (this.data.selectedElement && ['chair', 'table', 'bed'].includes(this.data.selectedElement.type)) {
+      const orientation = this.data.orientationOptions[index].value
+      this.updateSelectedFurnitureOrientation(orientation)
+    }
+  },
+
+  /**
+   * 更新选中家具的朝向
+   */
+  updateSelectedFurnitureOrientation(orientation) {
+    const { selectedElement, selectedElementIndex, designData, gridSize } = this.data
+    if (!selectedElement || selectedElementIndex < 0) return
+
+    const type = selectedElement.type
+    const furnitureLayer = designData.furniture_layer
+
+    if (type === 'chair') {
+      const chair = furnitureLayer.chairs[selectedElementIndex]
+      chair.orientation = orientation
+      selectedElement.orientation = orientation
+    } else if (type === 'table') {
+      const table = furnitureLayer.tables[selectedElementIndex]
+      
+      // 桌子需要根据朝向调整宽高
+      let newWidth = 2, newHeight = 1
+      if (orientation === 'E' || orientation === 'W') {
+        [newWidth, newHeight] = [newHeight, newWidth] // 交换宽高
+      }
+
+      // 检查是否越界
+      if (table.x + newWidth > gridSize || table.y + newHeight > gridSize) {
+        wx.showToast({
+          title: '旋转后超出边界',
+          icon: 'none'
+        })
+        return
+      }
+
+      table.orientation = orientation
+      table.width = newWidth
+      table.height = newHeight
+      selectedElement.orientation = orientation
+      selectedElement.width = newWidth
+      selectedElement.height = newHeight
+    } else if (type === 'bed') {
+      const bed = furnitureLayer.beds[selectedElementIndex]
+      
+      // 床需要根据朝向调整宽高
+      let newWidth = 2, newHeight = 3
+      if (orientation === 'E' || orientation === 'W') {
+        [newWidth, newHeight] = [newHeight, newWidth] // 交换宽高
+      }
+
+      // 检查是否越界
+      if (bed.x + newWidth > gridSize || bed.y + newHeight > gridSize) {
+        wx.showToast({
+          title: '旋转后超出边界',
+          icon: 'none'
+        })
+        return
+      }
+
+      bed.orientation = orientation
+      bed.width = newWidth
+      bed.height = newHeight
+      selectedElement.orientation = orientation
+      selectedElement.width = newWidth
+      selectedElement.height = newHeight
+    }
+
+    this.setData({
+      designData,
+      selectedElement
+    })
+
+    this.render()
+    this.saveToLocalCache()
+  },
+
+  /**
+   * 同步风扇控件到选中的风扇
+   */
+  syncFanControlsToSelected(fan) {
+    // 同步风扇方向
+    const direction = fan.default_direction || fan.direction || 'C'
+    
+    // 同步挂墙面
+    let mountFaceIndex = 0
+    if (fan.mount_face) {
+      const faceIndex = this.data.mountFaceOptions.findIndex(opt => opt.value === fan.mount_face)
+      if (faceIndex >= 0) mountFaceIndex = faceIndex
+    }
+
+    // 同步其他参数
+    const mountOffset = fan.mount_offset !== undefined ? fan.mount_offset : 0.5
+    const rotationMin = fan.rotation_range ? fan.rotation_range.min : -45
+    const rotationMax = fan.rotation_range ? fan.rotation_range.max : 45
+    const speedMin = fan.speed_range ? fan.speed_range.min : 0
+    const speedMax = fan.speed_range ? fan.speed_range.max : 120
+
+    this.setData({
+      fanDirection: direction,
+      mountFaceIndex: mountFaceIndex,
+      mountOffset: mountOffset,
+      rotationMin: rotationMin,
+      rotationMax: rotationMax,
+      speedMin: speedMin,
+      speedMax: speedMax
+    })
+  },
+
+  /**
+   * 同步家具控件到选中的家具
+   */
+  syncFurnitureControlsToSelected(furniture) {
+    // 同步朝向
+    let orientationIndex = 0
+    if (furniture.orientation) {
+      const index = this.data.orientationOptions.findIndex(opt => opt.value === furniture.orientation)
+      if (index >= 0) orientationIndex = index
+    }
+
+    this.setData({
+      orientationIndex: orientationIndex
+    })
   }
 })

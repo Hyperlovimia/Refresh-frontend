@@ -8,23 +8,24 @@ const gridUtils = require('./grid.js')
 /**
  * 绘制墙壁
  * @param {CanvasRenderingContext2D} ctx - Canvas 上下文
- * @param {Object} wall - 墙壁数据 {startX, startY, endX, endY}
+ * @param {Object} wall - 墙壁数据 {x, y, width, height}
  * @param {number} cellSize - 单元格大小
  * @param {string} color - 墙壁颜色
  * @param {boolean} isSelected - 是否选中
  */
-function drawWall(ctx, wall, cellSize, color = '#424242', isSelected = false) {
-  const start = gridUtils.gridToPixel(wall.startX, wall.startY, cellSize)
-  const end = gridUtils.gridToPixel(wall.endX, wall.endY, cellSize)
+function drawWall(ctx, wall, cellSize, color = '#000000', isSelected = false) {
+  const pos = gridUtils.gridToPixel(wall.x, wall.y, cellSize)
+  const width = wall.width * cellSize
+  const height = wall.height * cellSize
 
-  ctx.strokeStyle = isSelected ? '#f44336' : color
-  ctx.lineWidth = isSelected ? 8 : 6
-  ctx.lineCap = 'round'
+  // 填充墙壁区域
+  ctx.fillStyle = isSelected ? '#f44336' : color
+  ctx.fillRect(pos.x, pos.y, width, height)
 
-  ctx.beginPath()
-  ctx.moveTo(start.x + cellSize / 2, start.y + cellSize / 2)
-  ctx.lineTo(end.x + cellSize / 2, end.y + cellSize / 2)
-  ctx.stroke()
+  // 墙壁边框
+  ctx.strokeStyle = isSelected ? '#c62828' : color
+  ctx.lineWidth = isSelected ? 3 : 2
+  ctx.strokeRect(pos.x, pos.y, width, height)
 }
 
 /**
@@ -53,75 +54,71 @@ function drawRoom(ctx, room, cellSize, color = '#e0e0e0', isSelected = false) {
 /**
  * 绘制门
  * @param {CanvasRenderingContext2D} ctx - Canvas 上下文
- * @param {Object} door - 门数据 {x, y, direction}
+ * @param {Object} door - 门数据 {x, y, width, height, type}
  * @param {number} cellSize - 单元格大小
  * @param {string} color - 门颜色
  * @param {boolean} isSelected - 是否选中
  */
-function drawDoor(ctx, door, cellSize, color = '#8d6e63', isSelected = false) {
+function drawDoor(ctx, door, cellSize, color = '#964B00', isSelected = false) {
   const pos = gridUtils.gridToPixel(door.x, door.y, cellSize)
-  const centerX = pos.x + cellSize / 2
-  const centerY = pos.y + cellSize / 2
+  const width = (door.width || 1) * cellSize
+  const height = (door.height || 1) * cellSize
 
+  // 填充门区域（占满整个格子）
   ctx.fillStyle = isSelected ? '#ffcdd2' : color
-  ctx.strokeStyle = isSelected ? '#f44336' : '#5d4037'
-  ctx.lineWidth = isSelected ? 3 : 2
-
-  if (door.direction === 'horizontal') {
-    // 水平门
-    ctx.fillRect(pos.x + cellSize * 0.1, pos.y + cellSize * 0.3, cellSize * 0.8, cellSize * 0.4)
-    ctx.strokeRect(pos.x + cellSize * 0.1, pos.y + cellSize * 0.3, cellSize * 0.8, cellSize * 0.4)
-  } else {
-    // 垂直门
-    ctx.fillRect(pos.x + cellSize * 0.3, pos.y + cellSize * 0.1, cellSize * 0.4, cellSize * 0.8)
-    ctx.strokeRect(pos.x + cellSize * 0.3, pos.y + cellSize * 0.1, cellSize * 0.4, cellSize * 0.8)
-  }
+  ctx.fillRect(pos.x, pos.y, width, height)
 
   // 绘制门把手
-  ctx.fillStyle = '#333'
-  if (door.direction === 'horizontal') {
-    ctx.fillRect(centerX - 3, centerY - 3, 6, 6)
-  } else {
-    ctx.fillRect(centerX - 3, centerY - 3, 6, 6)
+  ctx.fillStyle = '#DAA520'
+  ctx.beginPath()
+  ctx.arc(
+    pos.x + width - cellSize * 0.3,
+    pos.y + height / 2,
+    3, 0, Math.PI * 2
+  )
+  ctx.fill()
+
+  // 绘制边框
+  if (isSelected) {
+    ctx.strokeStyle = '#f44336'
+    ctx.lineWidth = 3
+    ctx.strokeRect(pos.x, pos.y, width, height)
   }
 }
 
 /**
  * 绘制窗户
  * @param {CanvasRenderingContext2D} ctx - Canvas 上下文
- * @param {Object} window - 窗户数据 {x, y, direction}
+ * @param {Object} window - 窗户数据 {x, y, width, height, type}
  * @param {number} cellSize - 单元格大小
  * @param {string} color - 窗户颜色
  * @param {boolean} isSelected - 是否选中
  */
-function drawWindow(ctx, window, cellSize, color = '#64b5f6', isSelected = false) {
+function drawWindow(ctx, window, cellSize, color = '#87CEEB', isSelected = false) {
   const pos = gridUtils.gridToPixel(window.x, window.y, cellSize)
+  const width = (window.width || 1) * cellSize
+  const height = (window.height || 1) * cellSize
 
-  ctx.fillStyle = isSelected ? '#e3f2fd' : color
-  ctx.strokeStyle = isSelected ? '#f44336' : '#1976d2'
-  ctx.lineWidth = isSelected ? 3 : 2
+  // 绘制窗户边框（占满整个格子）
+  ctx.strokeStyle = isSelected ? '#f44336' : color
+  ctx.lineWidth = isSelected ? 3 : 3
+  ctx.strokeRect(pos.x, pos.y, width, height)
 
-  if (window.direction === 'horizontal') {
-    // 水平窗户
-    ctx.fillRect(pos.x + cellSize * 0.1, pos.y + cellSize * 0.2, cellSize * 0.8, cellSize * 0.6)
-    ctx.strokeRect(pos.x + cellSize * 0.1, pos.y + cellSize * 0.2, cellSize * 0.8, cellSize * 0.6)
+  // 绘制窗户分格
+  ctx.strokeStyle = isSelected ? '#f44336' : '#4682B4'
+  ctx.lineWidth = isSelected ? 2 : 1
 
-    // 窗框
-    ctx.beginPath()
-    ctx.moveTo(pos.x + cellSize / 2, pos.y + cellSize * 0.2)
-    ctx.lineTo(pos.x + cellSize / 2, pos.y + cellSize * 0.8)
-    ctx.stroke()
-  } else {
-    // 垂直窗户
-    ctx.fillRect(pos.x + cellSize * 0.2, pos.y + cellSize * 0.1, cellSize * 0.6, cellSize * 0.8)
-    ctx.strokeRect(pos.x + cellSize * 0.2, pos.y + cellSize * 0.1, cellSize * 0.6, cellSize * 0.8)
+  // 垂直分割线
+  ctx.beginPath()
+  ctx.moveTo(pos.x + width / 2, pos.y)
+  ctx.lineTo(pos.x + width / 2, pos.y + height)
+  ctx.stroke()
 
-    // 窗框
-    ctx.beginPath()
-    ctx.moveTo(pos.x + cellSize * 0.2, pos.y + cellSize / 2)
-    ctx.lineTo(pos.x + cellSize * 0.8, pos.y + cellSize / 2)
-    ctx.stroke()
-  }
+  // 水平分割线
+  ctx.beginPath()
+  ctx.moveTo(pos.x, pos.y + height / 2)
+  ctx.lineTo(pos.x + width, pos.y + height / 2)
+  ctx.stroke()
 }
 
 /**
@@ -139,68 +136,107 @@ function clearCanvas(ctx, width, height) {
 /**
  * 绘制风扇
  * @param {CanvasRenderingContext2D} ctx - Canvas 上下文
- * @param {Object} fan - 风扇数据 {x, y, direction, wallAttached, wallSide}
+ * @param {Object} fan - 风扇数据，支持原始系统格式
  * @param {number} cellSize - 单元格大小
  * @param {boolean} isSelected - 是否选中
  */
 function drawFan(ctx, fan, cellSize, isSelected = false) {
-  const pos = gridUtils.gridToPixel(fan.x, fan.y, cellSize)
-  const centerX = pos.x + cellSize / 2
-  const centerY = pos.y + cellSize / 2
+  let centerX, centerY
+
+  // 支持原始系统的挂墙风扇格式
+  if (fan.mount_cell_x !== undefined && fan.mount_cell_y !== undefined && fan.mount_face) {
+    const mx = fan.mount_cell_x
+    const my = fan.mount_cell_y
+    const face = fan.mount_face
+
+    // 根据挂墙面计算风扇中心位置
+    if (face === 'N') {
+      centerX = mx * cellSize + cellSize / 2
+      centerY = my * cellSize - cellSize * 0.4
+    } else if (face === 'S') {
+      centerX = mx * cellSize + cellSize / 2
+      centerY = (my + 1) * cellSize + cellSize * 0.4
+    } else if (face === 'W') {
+      centerX = mx * cellSize - cellSize * 0.4
+      centerY = my * cellSize + cellSize / 2
+    } else { // 'E'
+      centerX = (mx + 1) * cellSize + cellSize * 0.4
+      centerY = my * cellSize + cellSize / 2
+    }
+  } else {
+    // 兼容当前系统格式
+    const pos = gridUtils.gridToPixel(fan.x || 0, fan.y || 0, cellSize)
+    centerX = pos.x + cellSize / 2
+    centerY = pos.y + cellSize / 2
+  }
+
+  const radius = cellSize * 0.3
 
   ctx.save()
 
-  // 绘制扇叶圆圈
-  ctx.fillStyle = isSelected ? '#ffebee' : '#90caf9'
-  ctx.strokeStyle = isSelected ? '#f44336' : '#1976d2'
-  ctx.lineWidth = isSelected ? 3 : 2
-
+  // 绘制风扇底座
+  ctx.fillStyle = isSelected ? '#ffebee' : '#708090'
   ctx.beginPath()
-  ctx.arc(centerX, centerY, cellSize * 0.3, 0, Math.PI * 2)
+  ctx.arc(centerX, centerY, radius * 0.3, 0, Math.PI * 2)
   ctx.fill()
-  ctx.stroke()
 
-  // 绘制朝向箭头（风扇吹风方向）
-  ctx.strokeStyle = '#fff'
-  ctx.lineWidth = 2
-  ctx.lineCap = 'round'
-
-  const arrowSize = cellSize * 0.15
-  let angle = 0
-  if (fan.direction === 'up') angle = -Math.PI / 2
-  else if (fan.direction === 'right') angle = 0
-  else if (fan.direction === 'down') angle = Math.PI / 2
-  else if (fan.direction === 'left') angle = Math.PI
-
-  ctx.translate(centerX, centerY)
-  ctx.rotate(angle)
-
+  // 绘制风扇中心
+  ctx.fillStyle = isSelected ? '#f44336' : '#2F4F4F'
   ctx.beginPath()
-  ctx.moveTo(0, -arrowSize)
-  ctx.lineTo(0, arrowSize)
-  ctx.moveTo(0, -arrowSize)
-  ctx.lineTo(-arrowSize / 2, 0)
-  ctx.moveTo(0, -arrowSize)
-  ctx.lineTo(arrowSize / 2, 0)
-  ctx.stroke()
+  ctx.arc(centerX, centerY, radius * 0.15, 0, Math.PI * 2)
+  ctx.fill()
+
+  // 绘制风扇叶片（静态表示）
+  ctx.fillStyle = isSelected ? '#90caf9' : '#4682B4'
+  const bladeAngles = [0, 120, 240]
+  bladeAngles.forEach(angle => {
+    ctx.save()
+    ctx.translate(centerX, centerY)
+    ctx.rotate((angle * Math.PI) / 180)
+
+    ctx.beginPath()
+    ctx.moveTo(0, 0)
+    ctx.lineTo(radius * 0.8, -radius * 0.1)
+    ctx.lineTo(radius * 0.8, radius * 0.1)
+    ctx.closePath()
+    ctx.fill()
+
+    ctx.restore()
+  })
+
+  // 绘制风扇方向指示器
+  ctx.fillStyle = '#FF0000'
+  ctx.font = 'bold 16px Arial'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+
+  const directionSymbols = {
+    'N': '↑', 'NE': '↗', 'E': '→', 'SE': '↘',
+    'S': '↓', 'SW': '↙', 'W': '←', 'NW': '↖', 'C': '●',
+    // 兼容当前系统的方向命名
+    'up': '↑', 'right': '→', 'down': '↓', 'left': '←'
+  }
+
+  const direction = fan.default_direction || fan.direction || 'C'
+  ctx.fillText(
+    directionSymbols[direction] || '●',
+    centerX,
+    centerY + radius + 15
+  )
 
   ctx.restore()
 
-  // 如果挂墙，绘制墙壁连接线（使用 wallSide 而不是 direction）
-  if (fan.wallAttached && fan.wallSide) {
+  // 如果是挂墙风扇，绘制到墙体的连接线
+  if (fan.mount_face && fan.mount_cell_x !== undefined && fan.mount_cell_y !== undefined) {
     ctx.save()
     ctx.strokeStyle = '#757575'
     ctx.lineWidth = 1
     ctx.setLineDash([3, 3])
 
-    let wallX = centerX
-    let wallY = centerY
-
-    // wallSide 表示墙在哪一侧
-    if (fan.wallSide === 'up') wallY = pos.y
-    else if (fan.wallSide === 'down') wallY = pos.y + cellSize
-    else if (fan.wallSide === 'left') wallX = pos.x
-    else if (fan.wallSide === 'right') wallX = pos.x + cellSize
+    const mx = fan.mount_cell_x
+    const my = fan.mount_cell_y
+    let wallX = mx * cellSize + cellSize / 2
+    let wallY = my * cellSize + cellSize / 2
 
     ctx.beginPath()
     ctx.moveTo(centerX, centerY)
@@ -213,7 +249,7 @@ function drawFan(ctx, fan, cellSize, isSelected = false) {
 /**
  * 绘制椅子
  * @param {CanvasRenderingContext2D} ctx - Canvas 上下文
- * @param {Object} chair - 椅子数据 {x, y, direction}
+ * @param {Object} chair - 椅子数据 {x, y, orientation}
  * @param {number} cellSize - 单元格大小
  * @param {boolean} isSelected - 是否选中
  */
@@ -225,15 +261,18 @@ function drawChair(ctx, chair, cellSize, isSelected = false) {
   ctx.save()
   ctx.translate(centerX, centerY)
 
-  // 根据朝向旋转
+  // 根据朝向旋转，支持原始系统的 N/E/S/W 格式
   let angle = 0
-  if (chair.direction === 'right') angle = Math.PI / 2
-  else if (chair.direction === 'down') angle = Math.PI
-  else if (chair.direction === 'left') angle = -Math.PI / 2
+  const orientation = chair.orientation || chair.direction || 'N'
+  if (orientation === 'E' || orientation === 'right') angle = Math.PI / 2
+  else if (orientation === 'S' || orientation === 'down') angle = Math.PI
+  else if (orientation === 'W' || orientation === 'left') angle = -Math.PI / 2
+  // N 或 up 默认为 0
+
   ctx.rotate(angle)
 
-  ctx.fillStyle = isSelected ? '#ffcdd2' : '#a1887f'
-  ctx.strokeStyle = isSelected ? '#f44336' : '#5d4037'
+  ctx.fillStyle = isSelected ? '#ffcdd2' : '#A0522D'
+  ctx.strokeStyle = isSelected ? '#f44336' : '#8B4513'
   ctx.lineWidth = isSelected ? 3 : 2
 
   // 绘制椅背
@@ -250,7 +289,7 @@ function drawChair(ctx, chair, cellSize, isSelected = false) {
 /**
  * 绘制桌子
  * @param {CanvasRenderingContext2D} ctx - Canvas 上下文
- * @param {Object} table - 桌子数据 {x, y, direction, width, height}
+ * @param {Object} table - 桌子数据 {x, y, orientation, width, height}
  * @param {number} cellSize - 单元格大小
  * @param {boolean} isSelected - 是否选中
  */
@@ -259,27 +298,29 @@ function drawTable(ctx, table, cellSize, isSelected = false) {
   const width = (table.width || 2) * cellSize
   const height = (table.height || 1) * cellSize
 
-  ctx.fillStyle = isSelected ? '#ffe0b2' : '#bcaaa4'
-  ctx.strokeStyle = isSelected ? '#f44336' : '#6d4c41'
+  ctx.fillStyle = isSelected ? '#ffe0b2' : '#8B4513'
+  ctx.strokeStyle = isSelected ? '#f44336' : '#654321'
   ctx.lineWidth = isSelected ? 3 : 2
 
-  // 绘制桌面
-  ctx.fillRect(pos.x + cellSize * 0.1, pos.y + cellSize * 0.1, width - cellSize * 0.2, height - cellSize * 0.2)
-  ctx.strokeRect(pos.x + cellSize * 0.1, pos.y + cellSize * 0.1, width - cellSize * 0.2, height - cellSize * 0.2)
+  // 绘制桌面（占满格子）
+  ctx.fillRect(pos.x, pos.y, width, height)
+  ctx.strokeRect(pos.x, pos.y, width, height)
 
   // 绘制桌腿
-  const legSize = cellSize * 0.08
-  ctx.fillStyle = isSelected ? '#ff9800' : '#5d4037'
-  ctx.fillRect(pos.x + cellSize * 0.15, pos.y + cellSize * 0.15, legSize, legSize)
-  ctx.fillRect(pos.x + width - cellSize * 0.15 - legSize, pos.y + cellSize * 0.15, legSize, legSize)
-  ctx.fillRect(pos.x + cellSize * 0.15, pos.y + height - cellSize * 0.15 - legSize, legSize, legSize)
-  ctx.fillRect(pos.x + width - cellSize * 0.15 - legSize, pos.y + height - cellSize * 0.15 - legSize, legSize, legSize)
+  const legSize = cellSize * 0.2
+  ctx.fillStyle = isSelected ? '#ff9800' : '#654321'
+  
+  // 四个角的桌腿
+  ctx.fillRect(pos.x, pos.y, legSize, legSize)
+  ctx.fillRect(pos.x + width - legSize, pos.y, legSize, legSize)
+  ctx.fillRect(pos.x, pos.y + height - legSize, legSize, legSize)
+  ctx.fillRect(pos.x + width - legSize, pos.y + height - legSize, legSize, legSize)
 }
 
 /**
  * 绘制床
  * @param {CanvasRenderingContext2D} ctx - Canvas 上下文
- * @param {Object} bed - 床数据 {x, y, direction, width, height}
+ * @param {Object} bed - 床数据 {x, y, orientation, width, height}
  * @param {number} cellSize - 单元格大小
  * @param {boolean} isSelected - 是否选中
  */
@@ -288,36 +329,41 @@ function drawBed(ctx, bed, cellSize, isSelected = false) {
   const width = (bed.width || 2) * cellSize
   const height = (bed.height || 3) * cellSize
 
-  ctx.fillStyle = isSelected ? '#f8bbd0' : '#e1bee7'
-  ctx.strokeStyle = isSelected ? '#f44336' : '#8e24aa'
+  ctx.fillStyle = isSelected ? '#f8bbd0' : '#9370DB'
+  ctx.strokeStyle = isSelected ? '#f44336' : '#6A5ACD'
   ctx.lineWidth = isSelected ? 3 : 2
 
-  // 绘制床垫
-  ctx.fillRect(pos.x + cellSize * 0.05, pos.y + cellSize * 0.05, width - cellSize * 0.1, height - cellSize * 0.1)
-  ctx.strokeRect(pos.x + cellSize * 0.05, pos.y + cellSize * 0.05, width - cellSize * 0.1, height - cellSize * 0.1)
+  // 绘制床垫（占满格子）
+  ctx.fillRect(pos.x, pos.y, width, height)
+  ctx.strokeRect(pos.x, pos.y, width, height)
+
+  // 绘制床的细节
+  ctx.fillStyle = isSelected ? '#f48fb1' : '#6A5ACD'
+  ctx.fillRect(pos.x, pos.y, width, cellSize * 0.3)
 
   // 绘制枕头区域，根据朝向决定枕头位置
-  ctx.fillStyle = isSelected ? '#f48fb1' : '#ce93d8'
+  ctx.fillStyle = isSelected ? '#ffcdd2' : '#F0F8FF'
 
-  const pillowThickness = cellSize * 0.8
-  const margin = cellSize * 0.1
+  const orientation = bed.orientation || bed.direction || 'N'
+  const pillowSize = cellSize * 0.6
+  const margin = cellSize * 0.2
 
-  if (bed.direction === 'up') {
+  if (orientation === 'N' || orientation === 'up') {
     // 枕头在顶部
-    ctx.fillRect(pos.x + margin, pos.y + margin, width - cellSize * 0.2, pillowThickness)
-    ctx.strokeRect(pos.x + margin, pos.y + margin, width - cellSize * 0.2, pillowThickness)
-  } else if (bed.direction === 'down') {
+    ctx.fillRect(pos.x + margin, pos.y + margin, pillowSize, cellSize * 0.5)
+    ctx.strokeRect(pos.x + margin, pos.y + margin, pillowSize, cellSize * 0.5)
+  } else if (orientation === 'S' || orientation === 'down') {
     // 枕头在底部
-    ctx.fillRect(pos.x + margin, pos.y + height - margin - pillowThickness, width - cellSize * 0.2, pillowThickness)
-    ctx.strokeRect(pos.x + margin, pos.y + height - margin - pillowThickness, width - cellSize * 0.2, pillowThickness)
-  } else if (bed.direction === 'left') {
+    ctx.fillRect(pos.x + margin, pos.y + height - margin - cellSize * 0.5, pillowSize, cellSize * 0.5)
+    ctx.strokeRect(pos.x + margin, pos.y + height - margin - cellSize * 0.5, pillowSize, cellSize * 0.5)
+  } else if (orientation === 'W' || orientation === 'left') {
     // 枕头在左侧
-    ctx.fillRect(pos.x + margin, pos.y + margin, pillowThickness, height - cellSize * 0.2)
-    ctx.strokeRect(pos.x + margin, pos.y + margin, pillowThickness, height - cellSize * 0.2)
-  } else if (bed.direction === 'right') {
+    ctx.fillRect(pos.x + margin, pos.y + margin, cellSize * 0.5, pillowSize)
+    ctx.strokeRect(pos.x + margin, pos.y + margin, cellSize * 0.5, pillowSize)
+  } else if (orientation === 'E' || orientation === 'right') {
     // 枕头在右侧
-    ctx.fillRect(pos.x + width - margin - pillowThickness, pos.y + margin, pillowThickness, height - cellSize * 0.2)
-    ctx.strokeRect(pos.x + width - margin - pillowThickness, pos.y + margin, pillowThickness, height - cellSize * 0.2)
+    ctx.fillRect(pos.x + width - margin - cellSize * 0.5, pos.y + margin, cellSize * 0.5, pillowSize)
+    ctx.strokeRect(pos.x + width - margin - cellSize * 0.5, pos.y + margin, cellSize * 0.5, pillowSize)
   }
 }
 

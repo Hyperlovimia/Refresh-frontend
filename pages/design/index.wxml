@@ -116,6 +116,69 @@
         </view>
       </view>
 
+      <!-- 风扇参数控制面板 -->
+      <view class="tool-section" wx:if="{{currentLayer === 'furniture' && (currentTool === 'fan' || (selectedElement && selectedElement.type === 'fan'))}}">
+        <text class="section-title">风扇设置</text>
+        
+        <!-- 风扇方向选择 -->
+        <view class="param-group">
+          <text class="param-label">风扇方向</text>
+          <view class="direction-grid">
+            <view class="direction-btn {{fanDirection === 'NW' ? 'active' : ''}}" data-direction="NW" bind:tap="onSelectFanDirection">↖</view>
+            <view class="direction-btn {{fanDirection === 'N' ? 'active' : ''}}" data-direction="N" bind:tap="onSelectFanDirection">↑</view>
+            <view class="direction-btn {{fanDirection === 'NE' ? 'active' : ''}}" data-direction="NE" bind:tap="onSelectFanDirection">↗</view>
+            <view class="direction-btn {{fanDirection === 'W' ? 'active' : ''}}" data-direction="W" bind:tap="onSelectFanDirection">←</view>
+            <view class="direction-btn {{fanDirection === 'C' ? 'active' : ''}}" data-direction="C" bind:tap="onSelectFanDirection">●</view>
+            <view class="direction-btn {{fanDirection === 'E' ? 'active' : ''}}" data-direction="E" bind:tap="onSelectFanDirection">→</view>
+            <view class="direction-btn {{fanDirection === 'SW' ? 'active' : ''}}" data-direction="SW" bind:tap="onSelectFanDirection">↙</view>
+            <view class="direction-btn {{fanDirection === 'S' ? 'active' : ''}}" data-direction="S" bind:tap="onSelectFanDirection">↓</view>
+            <view class="direction-btn {{fanDirection === 'SE' ? 'active' : ''}}" data-direction="SE" bind:tap="onSelectFanDirection">↘</view>
+          </view>
+        </view>
+
+        <!-- 挂墙设置 -->
+        <view class="param-group">
+          <text class="param-label">挂墙面</text>
+          <picker mode="selector" range="{{mountFaceOptions}}" range-key="label" value="{{mountFaceIndex}}" bind:change="onMountFaceChange">
+            <view class="picker-display">{{mountFaceOptions[mountFaceIndex].label}}</view>
+          </picker>
+        </view>
+
+        <view class="param-group">
+          <text class="param-label">沿墙偏移</text>
+          <slider min="0" max="1" step="0.01" value="{{mountOffset}}" bind:change="onMountOffsetChange" show-value />
+        </view>
+
+        <view class="param-group">
+          <text class="param-label">转动角度范围</text>
+          <view class="range-input">
+            <input type="number" placeholder="最小角度" value="{{rotationMin}}" bind:input="onRotationMinChange" />
+            <text>~</text>
+            <input type="number" placeholder="最大角度" value="{{rotationMax}}" bind:input="onRotationMaxChange" />
+          </view>
+        </view>
+
+        <view class="param-group">
+          <text class="param-label">转速范围 (RPM)</text>
+          <view class="range-input">
+            <input type="number" placeholder="最小转速" value="{{speedMin}}" bind:input="onSpeedMinChange" />
+            <text>~</text>
+            <input type="number" placeholder="最大转速" value="{{speedMax}}" bind:input="onSpeedMaxChange" />
+          </view>
+        </view>
+      </view>
+
+      <!-- 家具朝向控制面板 -->
+      <view class="tool-section" wx:if="{{currentLayer === 'furniture' && selectedElement && (selectedElement.type === 'chair' || selectedElement.type === 'table' || selectedElement.type === 'bed')}}">
+        <text class="section-title">家具朝向</text>
+        <view class="param-group">
+          <text class="param-label">朝向</text>
+          <picker mode="selector" range="{{orientationOptions}}" range-key="label" value="{{orientationIndex}}" bind:change="onOrientationChange">
+            <view class="picker-display">{{orientationOptions[orientationIndex].label}}</view>
+          </picker>
+        </view>
+      </view>
+
       <!-- 叠加层工具 -->
       <view class="tool-section overlay-tools" wx:if="{{currentLayer === 'overlay'}}">
         <text class="section-title">分析</text>
