@@ -5,6 +5,7 @@
 const gridUtils = require('./utils/grid.js')
 const drawingUtils = require('./utils/drawing.js')
 const config = require('../../config.js')
+const { GridPlacementEngine } = require('./utils/gridPlacementEngine.js')
 
 Page({
   /**
@@ -94,13 +95,19 @@ Page({
     // Canvas相关
     canvas: null,
     ctx: null,
-    canvasDisplaySize: 600
+    canvasDisplaySize: 600,
+
+    // 网格放置引擎
+    placementEngine: null
   },
 
   /**
    * 生命周期函数--监听页面加载
    */
   onLoad(options) {
+    // 初始化网格放置引擎
+    this.data.placementEngine = new GridPlacementEngine(this.data.gridSize)
+
     this.initCanvas()
     this.loadFromLocalCache()
   },
@@ -563,11 +570,21 @@ Page({
       x: x,
       y: y,
       width: width,
-      height: height
+      height: height,
+      points: [
+        { x: x, y: y },
+        { x: x + width, y: y },
+        { x: x + width, y: y + height },
+        { x: x, y: y + height }
+      ]
     }
 
     const designData = this.data.designData
     designData.base_layer.rooms.push(room)
+
+    // 更新房间内部区域
+    this.data.placementEngine.updateRoomInteriors(designData.base_layer.rooms)
+
     this.setData({ designData })
 
     // 保存到本地缓存
@@ -664,6 +681,9 @@ Page({
     const { currentTool, designData, fanDirection, mountFaceOptions, mountFaceIndex, mountOffset, rotationMin, rotationMax, speedMin, speedMax, orientationOptions, orientationIndex } = this.data
     const furnitureLayer = designData.furniture_layer
 
+    // 同步设计数据到放置引擎
+    this.data.placementEngine.syncDesignData(designData)
+
     if (currentTool === 'fan') {
       // 风扇放置逻辑，参考原始系统
       const selectedFace = mountFaceOptions[mountFaceIndex].value
@@ -730,6 +750,8 @@ Page({
         mount_offset: mountInfo.offset,
         mount_cell_x: mountInfo.cellX,
         mount_cell_y: mountInfo.cellY,
+        x: mountInfo.cellX,
+        y: mountInfo.cellY,
         default_direction: fanDirection,
         direction: fanDirection,
         rotation_range: { min: rotationMin, max: rotationMax },
@@ -738,7 +760,14 @@ Page({
         height: 1
       }
 
-      furnitureLayer.fans.push(fan)
+      const result = this.data.placementEngine.placeElement(fan, 'fan', designData)
+      if (!result.success) {
+        wx.showToast({
+          title: result.errorMessage,
+          icon: 'none'
+        })
+        return
+      }
     } else if (currentTool === 'chair') {
       // 椅子固定为 1x1
       const orientation = orientationOptions[orientationIndex].value
@@ -750,22 +779,21 @@ Page({
         height: 1,
         orientation: orientation
       }
-      furnitureLayer.chairs.push(chair)
+
+      const result = this.data.placementEngine.placeElement(chair, 'chair', designData)
+      if (!result.success) {
+        wx.showToast({
+          title: result.errorMessage,
+          icon: 'none'
+        })
+        return
+      }
     } else if (currentTool === 'table') {
       // 桌子默认 2x1，可根据朝向旋转
       const orientation = orientationOptions[orientationIndex].value
       let width = 2, height = 1
       if (orientation === 'E' || orientation === 'W') {
         [width, height] = [height, width]
-      }
-      
-      // 检查是否越界
-      if (gridCoord.x + width > this.data.gridSize || gridCoord.y + height > this.data.gridSize) {
-        wx.showToast({
-          title: '放置位置超出边界',
-          icon: 'none'
-        })
-        return
       }
 
       const table = {
@@ -776,22 +804,21 @@ Page({
         height: height,
         orientation: orientation
       }
-      furnitureLayer.tables.push(table)
+
+      const result = this.data.placementEngine.placeElement(table, 'table', designData)
+      if (!result.success) {
+        wx.showToast({
+          title: result.errorMessage,
+          icon: 'none'
+        })
+        return
+      }
     } else if (currentTool === 'bed') {
       // 床默认 2x3，可根据朝向旋转
       const orientation = orientationOptions[orientationIndex].value
       let width = 2, height = 3
       if (orientation === 'E' || orientation === 'W') {
         [width, height] = [height, width]
-      }
-      
-      // 检查是否越界
-      if (gridCoord.x + width > this.data.gridSize || gridCoord.y + height > this.data.gridSize) {
-        wx.showToast({
-          title: '放置位置超出边界',
-          icon: 'none'
-        })
-        return
       }
 
       const bed = {
@@ -802,7 +829,15 @@ Page({
         height: height,
         orientation: orientation
       }
-      furnitureLayer.beds.push(bed)
+
+      const result = this.data.placementEngine.placeElement(bed, 'bed', designData)
+      if (!result.success) {
+        wx.showToast({
+          title: result.errorMessage,
+          icon: 'none'
+        })
+        return
+      }
     }
 
     this.setData({ designData })
