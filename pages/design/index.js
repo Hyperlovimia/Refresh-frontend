@@ -69,7 +69,8 @@ Page({
 
     // Canvas相关
     canvas: null,
-    ctx: null
+    ctx: null,
+    canvasDisplaySize: 600
   },
 
   /**
@@ -81,12 +82,34 @@ Page({
   },
 
   /**
+   * 生命周期函数--监听页面初次渲染完成
+   */
+  onReady() {
+    if (wx.onWindowResize) {
+      this.windowResizeHandler = () => {
+        this.updateCanvasDisplaySize()
+      }
+      wx.onWindowResize(this.windowResizeHandler)
+    }
+  },
+
+  /**
    * 生命周期函数--监听页面显示
    */
   onShow() {
     // 页面显示时重新渲染
+    this.updateCanvasDisplaySize()
     if (this.data.ctx) {
       this.render()
+    }
+  },
+
+  /**
+   * 生命周期函数--监听页面卸载
+   */
+  onUnload() {
+    if (wx.offWindowResize && this.windowResizeHandler) {
+      wx.offWindowResize(this.windowResizeHandler)
     }
   },
 
@@ -119,10 +142,9 @@ Page({
         this.setData({
           canvas: canvas,
           ctx: ctx
+        }, () => {
+          this.updateCanvasDisplaySize()
         })
-
-        // 缓存canvas的位置信息
-        this.updateCanvasRect()
 
         // 初始渲染
         this.render()
@@ -139,6 +161,34 @@ Page({
         if (rect) {
           this.canvasRect = rect
         }
+      })
+      .exec()
+  },
+
+  /**
+   * 根据容器大小更新canvas显示尺寸，确保保持方形比例
+   */
+  updateCanvasDisplaySize() {
+    const query = wx.createSelectorQuery()
+    query.select('#canvasContainer')
+      .boundingClientRect((rect) => {
+        if (!rect) return
+        const size = Math.min(rect.width, rect.height)
+        if (size <= 0) return
+
+        // 仅当尺寸变化时才更新，避免不必要的 setData
+        if (Math.abs(size - this.data.canvasDisplaySize) < 0.5) {
+          this.updateCanvasRect()
+          return
+        }
+
+        this.setData({
+          canvasDisplaySize: size
+        }, () => {
+          wx.nextTick(() => {
+            this.updateCanvasRect()
+          })
+        })
       })
       .exec()
   },
@@ -229,33 +279,26 @@ Page({
    * 将触摸坐标转换为画布内坐标
    */
   touchToCanvasCoord(touch) {
-    // 获取canvas元素的位置和尺寸
-    const query = wx.createSelectorQuery()
-    return new Promise((resolve) => {
-      query.select('#designCanvas')
-        .boundingClientRect((rect) => {
-          if (!rect) {
-            resolve({ x: touch.x, y: touch.y })
-            return
-          }
+    const rect = this.canvasRect
+    if (!rect) {
+      // 如果还未拿到位置信息，回退到原始坐标避免阻塞交互
+      return { x: touch.x || touch.clientX, y: touch.y || touch.clientY }
+    }
 
-          // 计算触摸点相对于canvas的坐标
-          const canvasX = touch.x - rect.left
-          const canvasY = touch.y - rect.top
+    const touchX = typeof touch.clientX === 'number' ? touch.clientX : touch.x
+    const touchY = typeof touch.clientY === 'number' ? touch.clientY : touch.y
 
-          // 计算缩放比例(实际显示尺寸 vs 逻辑尺寸)
-          const logicalSize = this.data.gridSize * this.data.cellSize
-          const scaleX = logicalSize / rect.width
-          const scaleY = logicalSize / rect.height
+    const canvasX = touchX - rect.left
+    const canvasY = touchY - rect.top
 
-          // 转换到逻辑坐标空间
-          const logicalX = canvasX * scaleX
-          const logicalY = canvasY * scaleY
+    const logicalSize = this.data.gridSize * this.data.cellSize
+    const scaleX = logicalSize / rect.width
+    const scaleY = logicalSize / rect.height
 
-          resolve({ x: logicalX, y: logicalY })
-        })
-        .exec()
-    })
+    return {
+      x: canvasX * scaleX,
+      y: canvasY * scaleY
+    }
   },
 
   /**
@@ -263,18 +306,7 @@ Page({
    */
   onTouchStart(e) {
     const touch = e.touches[0]
-
-    // 获取canvas相对坐标(同步处理,使用缓存的rect)
-    const canvasX = touch.x - (this.canvasRect?.left || 0)
-    const canvasY = touch.y - (this.canvasRect?.top || 0)
-
-    // 计算缩放比例
-    const logicalSize = this.data.gridSize * this.data.cellSize
-    const scaleX = this.canvasRect ? logicalSize / this.canvasRect.width : 1
-    const scaleY = this.canvasRect ? logicalSize / this.canvasRect.height : 1
-
-    const x = canvasX * scaleX
-    const y = canvasY * scaleY
+    const { x, y } = this.touchToCanvasCoord(touch)
 
     const gridCoord = gridUtils.pixelToGrid(x, y, this.data.cellSize)
 
@@ -318,18 +350,7 @@ Page({
    */
   onTouchMove(e) {
     const touch = e.touches[0]
-
-    // 获取canvas相对坐标
-    const canvasX = touch.x - (this.canvasRect?.left || 0)
-    const canvasY = touch.y - (this.canvasRect?.top || 0)
-
-    // 计算缩放比例
-    const logicalSize = this.data.gridSize * this.data.cellSize
-    const scaleX = this.canvasRect ? logicalSize / this.canvasRect.width : 1
-    const scaleY = this.canvasRect ? logicalSize / this.canvasRect.height : 1
-
-    const x = canvasX * scaleX
-    const y = canvasY * scaleY
+    const { x, y } = this.touchToCanvasCoord(touch)
 
     const gridCoord = gridUtils.pixelToGrid(x, y, this.data.cellSize)
 
@@ -366,18 +387,7 @@ Page({
     if (!this.data.drawing) return
 
     const touch = e.changedTouches[0]
-
-    // 获取canvas相对坐标
-    const canvasX = touch.x - (this.canvasRect?.left || 0)
-    const canvasY = touch.y - (this.canvasRect?.top || 0)
-
-    // 计算缩放比例
-    const logicalSize = this.data.gridSize * this.data.cellSize
-    const scaleX = this.canvasRect ? logicalSize / this.canvasRect.width : 1
-    const scaleY = this.canvasRect ? logicalSize / this.canvasRect.height : 1
-
-    const x = canvasX * scaleX
-    const y = canvasY * scaleY
+    const { x, y } = this.touchToCanvasCoord(touch)
 
     const gridCoord = gridUtils.pixelToGrid(x, y, this.data.cellSize)
 

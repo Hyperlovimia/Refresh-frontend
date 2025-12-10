@@ -172,11 +172,12 @@
     </view>
 
     <!-- 右侧画布区域 -->
-    <view class="canvas-container">
+    <view class="canvas-container" id="canvasContainer">
       <canvas
         type="2d"
         id="designCanvas"
         class="design-canvas"
+        style="width: {{canvasDisplaySize}}px; height: {{canvasDisplaySize}}px;"
         bindtouchstart="onTouchStart"
         bindtouchmove="onTouchMove"
         bindtouchend="onTouchEnd"
